@@ -1,10 +1,11 @@
-get:
+post:
   tags:
     - media-assets
-  summary: Create a direct media asset download URL
+  summary: Create presigned upload URLs for media parts
   description: >-
-    Returns a presigned private GET URL for the stored object. Clients may use
-    normal HTTP Range requests against the returned URL for partial reads.
+    Returns presigned PUT URLs for one or more multipart upload parts. The
+    returned headers must be sent with each PUT so object storage validates the
+    declared per-part SHA-256 checksum.
   security:
     - ApiKeyHeader: []
   parameters:
@@ -13,18 +14,24 @@ get:
       required: true
       schema:
         $ref: ../components/schemas/UuidString.yaml
-    - name: mediaAssetId
+    - name: sessionId
       in: path
       required: true
       schema:
         $ref: ../components/schemas/UuidString.yaml
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/MediaAssetUploadPartUrlsInput.yaml
   responses:
     '200':
-      description: Download URL created
+      description: Part upload URLs created
       content:
         application/json:
           schema:
-            $ref: ../components/schemas/MediaAssetDownloadUrlResponse.yaml
+            $ref: ../components/schemas/MediaAssetUploadPartUrlsResponse.yaml
     default:
       description: Authenticated request error
       content:
