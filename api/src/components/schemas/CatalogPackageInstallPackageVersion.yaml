@@ -1,7 +1,9 @@
 type: object
 additionalProperties: false
 required:
+  - packageVersionId
   - packageId
+  - versionNumber
   - slug
   - title
   - summary
@@ -11,12 +13,18 @@ required:
   - license
   - contentWarning
   - coverPackageMediaKey
-  - status
+  - cardCount
+  - createdAt
+  - publishedAt
   - author
-  - latestVersion
 properties:
+  packageVersionId:
+    $ref: ./UuidString.yaml
   packageId:
     $ref: ./UuidString.yaml
+  versionNumber:
+    type: integer
+    minimum: 1
   slug:
     type: string
   title:
@@ -43,11 +51,16 @@ properties:
     type:
       - string
       - 'null'
-    description: Opaque package-local cover media key, not a workspace media asset id.
-  status:
+  cardCount:
+    type: integer
+    minimum: 0
+  createdAt:
     type: string
-    const: published
+    format: date-time
+  publishedAt:
+    type:
+      - string
+      - 'null'
+    format: date-time
   author:
-    $ref: ./CatalogPublicAuthor.yaml
-  latestVersion:
-    $ref: ./CatalogPublicPackageVersionSummary.yaml
+    $ref: ./CatalogPackageInstallAuthor.yaml
