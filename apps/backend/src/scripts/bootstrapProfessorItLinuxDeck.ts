@@ -21,6 +21,7 @@ type SourceCard = Readonly<{
 }>;
 
 const sourceWorkspaceId = "35274129-ef97-d366-954c-955b4bb0fbf0";
+const sourceUserId = "local";
 const targetUserId = process.env.PROFESSORIT_TARGET_USER_ID;
 const targetWorkspaceId = process.env.PROFESSORIT_TARGET_WORKSPACE_ID;
 const targetReplicaId = process.env.PROFESSORIT_TARGET_REPLICA_ID;
@@ -33,8 +34,8 @@ const packageSlug = "professor-it-linux-foundation";
 const adminEmail = "admin@professorit.ru";
 
 async function main(): Promise<void> {
-const packageVersionId = await unsafeTransaction(async (executor) => {
-  const cards = await executor.query<SourceCard>(
+const cards = await transactionWithWorkspaceScope({ userId: sourceUserId, workspaceId: sourceWorkspaceId }, async (executor) => {
+  return executor.query<SourceCard>(
     [
       "SELECT card_id, front_text, back_text, card_type, metadata, tags",
       "FROM content.cards",
@@ -43,9 +44,12 @@ const packageVersionId = await unsafeTransaction(async (executor) => {
     ].join(" "),
     [sourceWorkspaceId],
   );
-  if (cards.rows.length !== 68) {
-    throw new Error(`Expected 68 Linux cards, received ${cards.rows.length}.`);
-  }
+});
+if (cards.rows.length !== 68) {
+  throw new Error(`Expected 68 Linux cards, received ${cards.rows.length}.`);
+}
+
+const packageVersionId = await unsafeTransaction(async (executor) => {
 
   const existing = await executor.query<Readonly<{ package_version_id: string }>>(
     [
