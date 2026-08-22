@@ -85,7 +85,8 @@ export function createProfessorItCardSuggestionRoutes(options: Options): Hono<Ap
       [
         "SELECT suggestions.*",
         "FROM content.professorit_card_suggestions AS suggestions",
-        "ORDER BY CASE suggestions.status WHEN 'pending' THEN 0 ELSE 1 END, suggestions.created_at DESC",
+        "WHERE suggestions.status = 'pending'",
+        "ORDER BY suggestions.created_at DESC",
         "LIMIT 500",
       ].join(" "),
       [],
