@@ -32,6 +32,7 @@ if (!targetUserId || !targetWorkspaceId || !targetReplicaId) {
 const packageSlug = "professor-it-linux-foundation";
 const adminEmail = "admin@professorit.ru";
 
+async function main(): Promise<void> {
 const packageVersionId = await unsafeTransaction(async (executor) => {
   const cards = await executor.query<SourceCard>(
     [
@@ -113,3 +114,9 @@ const result = await transactionWithWorkspaceScope({ userId: targetUserId, works
 ));
 
 console.log(JSON.stringify({ packageVersionId, installedCards: result.summary.cardCount }, null, 2));
+}
+
+main().catch((error: unknown) => {
+  console.error(error);
+  process.exitCode = 1;
+});
