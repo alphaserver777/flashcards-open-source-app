@@ -6,6 +6,7 @@ import {
   type DatabaseExecutor,
 } from "../database";
 import { buildSystemWorkspaceReplicaId } from "../sync/identity/replica";
+import { synchronizeProfessorITSharedCardsInExecutor } from "./sharedCards";
 
 type PublishedPackageVersion = Readonly<{
   package_version_id: string;
@@ -103,4 +104,5 @@ export async function ensureProfessorITSharedDecksInExecutor(
       lastOperationId: `professorit-remove-demo-${card.card_id}`,
     });
   }
+  await synchronizeProfessorITSharedCardsInExecutor(executor, userId, workspaceId);
 }

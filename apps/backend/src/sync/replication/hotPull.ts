@@ -22,6 +22,7 @@ import type {
 import { HttpError } from "../../shared/errors";
 import { ensureWorkspaceReplicaInExecutor } from "../identity/replica";
 import { ensureWorkspaceSyncMetadataInExecutor, loadMinAvailableHotChangeId } from "./changes";
+import { synchronizeProfessorITSharedCardsInExecutor } from "../../professorit/sharedCards";
 import type { WorkspaceSchedulerSettings } from "../../scheduling/workspaceSettings";
 import type { SyncPullInput } from "../contracts/input";
 import type {
@@ -328,6 +329,7 @@ export async function processSyncPull(
       platform: input.platform,
       appVersion: input.appVersion ?? null,
     });
+    await synchronizeProfessorITSharedCardsInExecutor(executor, userId, workspaceId);
     await ensureWorkspaceSyncMetadataInExecutor(executor, workspaceId);
     const minAvailableHotChangeId = await loadMinAvailableHotChangeId(executor, workspaceId);
     if (input.afterHotChangeId > 0 && input.afterHotChangeId < minAvailableHotChangeId) {

@@ -33,6 +33,7 @@ import type {
   SyncPushResult,
 } from "../contracts/types";
 import { canManageProfessorItSharedContent } from "../../auth/professoritPermissions";
+import { synchronizeProfessorITSharedCardsInExecutor } from "../../professorit/sharedCards";
 import { normalizeCardMetadata, normalizeCardType } from "../../cards/shared";
 
 const mediaAssetSyncWriteRejectedMessage = "media_asset sync writes are not accepted; use the media upload API to create or update media assets.";
@@ -426,13 +427,15 @@ export async function processSyncPush(
         appVersion: input.appVersion ?? null,
       });
 
-      return processSyncPushOperationsInExecutor(
+      const results = await processSyncPushOperationsInExecutor(
         executor,
         workspaceId,
         replicaId,
         input.operations,
         canManageProfessorItSharedContent(userId),
       );
+      await synchronizeProfessorITSharedCardsInExecutor(executor, userId, workspaceId);
+      return results;
     },
   );
 

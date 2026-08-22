@@ -117,6 +117,23 @@ export function createProfessorItCardSuggestionRoutes(options: Options): Hono<Ap
       throw new HttpError(400, "status must be accepted or rejected");
     }
     const authorComment = typeof body.authorComment === "string" ? body.authorComment.trim() : null;
+    if (status === "accepted") {
+      const sharedUpdate = await unsafeQuery(
+        [
+          "UPDATE content.professorit_shared_cards AS shared_cards",
+          "SET back_text = suggestions.message, updated_at = now()",
+          "FROM content.professorit_card_suggestions AS suggestions",
+          "INNER JOIN content.professorit_shared_card_copies AS copies",
+          "ON copies.workspace_id = suggestions.workspace_id AND copies.card_id = suggestions.card_id",
+          "WHERE suggestions.suggestion_id = $1 AND shared_cards.shared_card_id = copies.shared_card_id",
+          "RETURNING shared_cards.shared_card_id",
+        ].join(" "),
+        [suggestionId],
+      );
+      if (sharedUpdate.rowCount === 0) {
+        throw new HttpError(409, "Suggestion is not linked to a shared card");
+      }
+    }
     await unsafeQuery(
       "UPDATE content.professorit_card_suggestions SET status = $2, author_comment = $3, updated_at = now() WHERE suggestion_id = $1",
       [suggestionId, status, authorComment === "" ? null : authorComment],
