@@ -408,7 +408,7 @@ function createMountedApp(basePath: string, allowedOrigins: Array<string>): Hono
   app.route("/", createAdminRoutes({ allowedOrigins }));
   app.route("/", createCatalogAdminRoutes({ allowedOrigins }));
   app.route("/", createCatalogAdminImageIngestionRoutes({ allowedOrigins }));
-  app.route("/", createCatalogPublicRoutes({}));
+  app.route("/", createCatalogPublicRoutes({ allowedOrigins }));
   app.route("/", createCatalogInstallRoutes({ allowedOrigins }));
   app.route("/", createCardsRoutes({ allowedOrigins }));
   app.route("/", createFeedbackRoutes({ allowedOrigins }));

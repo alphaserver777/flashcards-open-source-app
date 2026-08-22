@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { loadRequestContextFromRequest } from "../../server/requestContext";
 import {
   listPublicCatalogPackages,
   loadPublicCatalogCollectionCoverForDownload,
@@ -43,6 +44,7 @@ import {
 } from "../../shared/publicUrls";
 
 type CatalogPublicRoutesOptions = Readonly<{
+  allowedOrigins?: ReadonlyArray<string>;
   loadPublicCatalogSnapshotFn?: (
     publicApiBaseUrl: string,
     publicAppBaseUrl: string,
@@ -273,6 +275,12 @@ function assertPublicCatalogMediaDownloadSupported(
 
 export function createCatalogPublicRoutes(options: CatalogPublicRoutesOptions): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
+  if (process.env.AUTH_MODE === "professorit") {
+    app.use("*", async (context, next) => {
+      await loadRequestContextFromRequest(context.req.raw, options.allowedOrigins ?? []);
+      return next();
+    });
+  }
   const loadPublicCatalogSnapshotFn = options.loadPublicCatalogSnapshotFn
     ?? loadPublicCatalogSnapshot;
   const listPublicCatalogPackagesFn = options.listPublicCatalogPackagesFn ?? listPublicCatalogPackages;
