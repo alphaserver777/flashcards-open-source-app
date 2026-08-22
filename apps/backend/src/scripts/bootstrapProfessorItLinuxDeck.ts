@@ -10,6 +10,7 @@ import {
   updateCatalogPackageVersionReviewStatusInExecutor,
 } from "../catalog";
 import type { CardMetadata } from "../cards/types";
+import { deleteCardInExecutor } from "../cards";
 
 type SourceCard = Readonly<{
   card_id: string;
@@ -116,6 +117,25 @@ const result = await transactionWithWorkspaceScope({ userId: targetUserId, works
     importTag: "Professor IT · Linux",
   })
 ));
+
+await transactionWithWorkspaceScope({ userId: targetUserId, workspaceId: targetWorkspaceId }, async (executor) => {
+  const demo = await executor.query<Readonly<{ card_id: string }>>(
+    [
+      "SELECT card_id FROM content.cards",
+      "WHERE workspace_id = $1 AND tags @> ARRAY['demo']::text[] AND deleted_at IS NULL",
+      "ORDER BY created_at ASC LIMIT 1",
+    ].join(" "),
+    [targetWorkspaceId],
+  );
+  const card = demo.rows[0];
+  if (card) {
+    await deleteCardInExecutor(executor, targetWorkspaceId, card.card_id, {
+      clientUpdatedAt: now,
+      lastModifiedByReplicaId: targetReplicaId,
+      lastOperationId: `professorit-remove-demo-${Date.now()}`,
+    });
+  }
+});
 
 console.log(JSON.stringify({ packageVersionId, installedCards: result.summary.cardCount }, null, 2));
 }
