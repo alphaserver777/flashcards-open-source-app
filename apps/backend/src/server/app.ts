@@ -35,6 +35,7 @@ import { createCatalogPublicRoutes } from "../routes/catalog/public";
 import { createCatalogInstallRoutes } from "../routes/catalog/install";
 import { createGuestAuthRoutes } from "../routes/guestAuth";
 import { createWorkspaceRoutes } from "../routes/workspaces/index";
+import { createProfessorITAuthRoutes } from "../auth/professorit";
 import {
   createAgentConnectionManagementErrorEnvelope,
 } from "../agent/setup";
@@ -399,6 +400,9 @@ function createMountedApp(basePath: string, allowedOrigins: Array<string>): Hono
   });
 
   app.route("/", createSystemRoutes({ allowedOrigins }));
+  if (getAuthConfig().mode === "professorit") {
+    app.route("/", createProfessorITAuthRoutes());
+  }
   app.route("/", createAgentRoutes({ allowedOrigins }));
   app.route("/", createWorkspaceRoutes({ allowedOrigins }));
   app.route("/", createAdminRoutes({ allowedOrigins }));

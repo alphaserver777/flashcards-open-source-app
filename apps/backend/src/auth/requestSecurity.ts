@@ -5,6 +5,7 @@ import {
   getBackendCsrfSecret,
   getBackendCsrfSecretWithAbortSignal,
 } from "../aws/secrets";
+import { getAuthConfig } from "./config";
 
 /**
  * Request fields used to authenticate the caller and validate browser-only
@@ -92,6 +93,14 @@ function getBackendCsrfSecretArn(): string {
   return secretArn;
 }
 
+function getProfessorITCsrfSecret(): string {
+  const secret = process.env.PROFESSORIT_SESSION_SECRET?.trim();
+  if (secret === undefined || secret === "") {
+    throw new Error("PROFESSORIT_SESSION_SECRET is required for Professor IT session CSRF protection");
+  }
+  return secret;
+}
+
 /**
  * Reads all auth- and CSRF-related inputs once so routes can share a single
  * source of truth for bearer auth, session auth, and browser protection.
@@ -119,6 +128,9 @@ export function toAuthRequest(requestAuthInputs: RequestAuthInputs): AuthRequest
  * browser flow compatible with domain-wide SSO and avoids storing CSRF state.
  */
 export async function getSessionCsrfToken(sessionToken: string): Promise<string> {
+  if (getAuthConfig().mode === "professorit") {
+    return createSessionCsrfToken(sessionToken, getProfessorITCsrfSecret());
+  }
   const csrfSecret = await getBackendCsrfSecret(getBackendCsrfSecretArn());
   return createSessionCsrfToken(sessionToken, csrfSecret);
 }
@@ -127,6 +139,9 @@ async function getSessionCsrfTokenWithAbortSignal(
   sessionToken: string,
   abortSignal: AbortSignal,
 ): Promise<string> {
+  if (getAuthConfig().mode === "professorit") {
+    return createSessionCsrfToken(sessionToken, getProfessorITCsrfSecret());
+  }
   const csrfSecret = await getBackendCsrfSecretWithAbortSignal(
     getBackendCsrfSecretArn(),
     abortSignal,

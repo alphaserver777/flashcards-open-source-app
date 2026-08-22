@@ -119,6 +119,9 @@ test("request context aborts in-flight authentication before profile database wo
           ensureCognitoProfileCalls += 1;
           throw new Error("Unexpected Cognito profile work.");
         },
+        ensureProfessorITUserProfileFn: async () => {
+          throw new Error("Unexpected Professor IT profile work.");
+        },
         ensureUserProfileFn: async () => {
           ensureProfileCalls += 1;
           throw new Error("Unexpected profile work.");

@@ -9,6 +9,7 @@ import { isDeletedSubject } from "../auth/deletedSubjects";
 import { HttpError } from "../shared/errors";
 import {
   ensureCognitoUserProfile,
+  ensureProfessorITUserProfile,
   ensureUserProfile,
   type AccountPreferences,
 } from "../auth/ensureUser";
@@ -25,6 +26,7 @@ import {
   type RequestAuthInputs,
 } from "../auth/requestSecurity";
 import { getAllowedBrowserOrigins } from "./browserCors";
+import { getAuthConfig } from "../auth/config";
 
 export type RequestContext = Readonly<{
   userId: string;
@@ -59,6 +61,7 @@ type LoadRequestContextDependencies = Readonly<{
   authenticateRequestFn: typeof authenticateRequest;
   isDeletedSubjectFn: typeof isDeletedSubject;
   ensureCognitoUserProfileFn: typeof ensureCognitoUserProfile;
+  ensureProfessorITUserProfileFn: typeof ensureProfessorITUserProfile;
   ensureUserProfileFn: typeof ensureUserProfile;
 }>;
 
@@ -67,6 +70,7 @@ type LoadRequestContextWithAbortSignalDependencies = Readonly<{
     typeof authenticateRequestWithAbortSignal;
   isDeletedSubjectFn: typeof isDeletedSubject;
   ensureCognitoUserProfileFn: typeof ensureCognitoUserProfile;
+  ensureProfessorITUserProfileFn: typeof ensureProfessorITUserProfile;
   ensureUserProfileFn: typeof ensureUserProfile;
 }>;
 
@@ -109,6 +113,7 @@ async function loadAuthenticatedRequestContext(
   dependencies: Readonly<{
     isDeletedSubjectFn: typeof isDeletedSubject;
     ensureCognitoUserProfileFn: typeof ensureCognitoUserProfile;
+    ensureProfessorITUserProfileFn: typeof ensureProfessorITUserProfile;
     ensureUserProfileFn: typeof ensureUserProfile;
   }>,
   assertRequestActive: () => void,
@@ -122,9 +127,12 @@ async function loadAuthenticatedRequestContext(
       throw new HttpError(410, "This account has already been deleted.", "ACCOUNT_DELETED");
     }
   }
-  const userProfile = auth.transport === "bearer" || auth.transport === "session"
+  const authMode = getAuthConfig().mode;
+  const userProfile = (auth.transport === "bearer" || auth.transport === "session") && authMode === "cognito"
     ? await dependencies.ensureCognitoUserProfileFn(auth.subjectUserId, auth.email)
-    : await dependencies.ensureUserProfileFn(auth.userId, auth.email);
+    : authMode === "professorit"
+      ? await dependencies.ensureProfessorITUserProfileFn(auth.userId, auth.email ?? "", auth.cognitoUsername ?? auth.email ?? auth.userId)
+      : await dependencies.ensureUserProfileFn(auth.userId, auth.email);
   assertRequestActive();
   const selectedWorkspaceId = auth.transport === "api_key"
     ? auth.selectedWorkspaceId
@@ -170,6 +178,7 @@ export async function loadRequestContext(
     authenticateRequestFn: authenticateRequest,
     isDeletedSubjectFn: isDeletedSubject,
     ensureCognitoUserProfileFn: ensureCognitoUserProfile,
+    ensureProfessorITUserProfileFn: ensureProfessorITUserProfile,
     ensureUserProfileFn: ensureUserProfile,
   });
 }
@@ -186,6 +195,7 @@ export async function loadRequestContextWithAbortSignal(
         authenticateRequestWithAbortSignal,
       isDeletedSubjectFn: isDeletedSubject,
       ensureCognitoUserProfileFn: ensureCognitoUserProfile,
+      ensureProfessorITUserProfileFn: ensureProfessorITUserProfile,
       ensureUserProfileFn: ensureUserProfile,
     },
   );

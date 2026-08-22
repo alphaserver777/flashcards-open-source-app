@@ -97,6 +97,26 @@ export async function ensureUserProfile(userId: string, email: string | null): P
   return transactionWithUserScope({ userId }, async (executor) => ensureUserProfileInExecutor(executor, userId, email));
 }
 
+/**
+ * Professor IT LMS is the source of identity.  The external subject selects
+ * the learner's personal workspace; email and display name are refreshed at
+ * every successful LMS sign-in.
+ */
+export async function ensureProfessorITUserProfile(
+  userId: string,
+  email: string,
+  displayName: string,
+): Promise<UserProfile> {
+  return transactionWithUserScope({ userId }, async (executor) => {
+    const profile = await ensureUserProfileInExecutor(executor, userId, email);
+    await executor.query(
+      "UPDATE org.user_settings SET display_name = $2 WHERE user_id = $1",
+      [userId, displayName],
+    );
+    return profile;
+  });
+}
+
 export async function ensureCognitoUserProfileInExecutor(
   executor: DatabaseExecutor,
   subjectUserId: string,

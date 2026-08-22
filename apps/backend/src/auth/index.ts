@@ -19,6 +19,7 @@ import { HttpError } from "../shared/errors";
 import { authenticateGuestSession } from "../guestAuth/session/index";
 import type { GuestSessionPlatform } from "../guestAuth/types";
 import { loadCognitoIdentityMapping } from "./userIdentities";
+import { verifyProfessorITSessionToken } from "./professorit";
 
 export type AuthTransport = "none" | "bearer" | "session" | "api_key" | "guest";
 
@@ -228,6 +229,9 @@ async function verifyIdTokenWithVerifier(
 }
 
 async function verifyIdToken(token: string): Promise<AuthenticatedUserIdentity> {
+  if (getAuthConfig().mode === "professorit") {
+    return verifyProfessorITSessionToken(token);
+  }
   return verifyIdTokenWithVerifier(token, getVerifier());
 }
 
@@ -235,6 +239,10 @@ async function verifyIdTokenForDirectRequest(
   token: string,
   abortSignal: AbortSignal,
 ): Promise<AuthenticatedUserIdentity> {
+  if (getAuthConfig().mode === "professorit") {
+    abortSignal.throwIfAborted();
+    return verifyProfessorITSessionToken(token);
+  }
   return directAuthenticationAbortSignalStorage.run(
     abortSignal,
     () => verifyIdTokenWithVerifier(token, getDirectRequestVerifier()),
@@ -353,9 +361,9 @@ async function authenticateRequestWithDependencies(
     const identity = await runOperation(
       () => dependencies.verifyIdTokenFn(parsedAuthorization.token),
     );
-    const mapping = await runOperation(
-      () => dependencies.loadCognitoIdentityMappingFn(identity.userId),
-    );
+    const mapping = getAuthConfig().mode === "cognito"
+      ? await runOperation(() => dependencies.loadCognitoIdentityMappingFn(identity.userId))
+      : null;
     return {
       ...identity,
       userId: mapping?.userId ?? identity.userId,
@@ -390,9 +398,9 @@ async function authenticateRequestWithDependencies(
     const identity = await runOperation(
       () => dependencies.verifyIdTokenFn(sessionToken),
     );
-    const mapping = await runOperation(
-      () => dependencies.loadCognitoIdentityMappingFn(identity.userId),
-    );
+    const mapping = getAuthConfig().mode === "cognito"
+      ? await runOperation(() => dependencies.loadCognitoIdentityMappingFn(identity.userId))
+      : null;
     return {
       ...identity,
       userId: mapping?.userId ?? identity.userId,
