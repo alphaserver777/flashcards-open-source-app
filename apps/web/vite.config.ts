@@ -1,3 +1,4 @@
+import { loadEnv } from "vite";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
@@ -78,14 +79,19 @@ function resolveSentrySourceMapUploadConfig(
   };
 }
 
-export default defineConfig(({ command }) => {
+export default defineConfig(({ command, mode }) => {
+  const modeEnvironment = loadEnv(mode, process.cwd(), "");
   const sentrySourceMapUploadConfig = resolveSentrySourceMapUploadConfig(command);
   const shouldUploadSentrySourceMaps = sentrySourceMapUploadConfig !== undefined;
 
   return {
     // The Professor IT deployment is served below /cards/ behind Traefik.
     // Keep the default root path for the upstream web, iOS and Android work.
-    base: process.env.VITE_PUBLIC_BASE_PATH?.trim() || "/",
+    base: mode === "proxmox-lab"
+      ? "/cards/"
+      : (modeEnvironment.VITE_PUBLIC_BASE_PATH?.trim()
+        || process.env.VITE_PUBLIC_BASE_PATH?.trim()
+        || "/"),
     plugins: [
       react(),
       ...(sentrySourceMapUploadConfig !== undefined
