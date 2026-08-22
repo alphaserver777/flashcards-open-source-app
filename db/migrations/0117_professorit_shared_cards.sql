@@ -71,7 +71,8 @@ ON CONFLICT DO NOTHING;
 WITH latest_accepted AS (
   SELECT DISTINCT ON (copies.shared_card_id)
     copies.shared_card_id,
-    suggestions.message
+    suggestions.message,
+    suggestions.updated_at
   FROM content.professorit_card_suggestions AS suggestions
   INNER JOIN content.professorit_shared_card_copies AS copies
     ON copies.workspace_id = suggestions.workspace_id
@@ -82,7 +83,8 @@ WITH latest_accepted AS (
 UPDATE content.professorit_shared_cards AS shared_cards
 SET back_text = latest_accepted.message, updated_at = now()
 FROM latest_accepted
-WHERE shared_cards.shared_card_id = latest_accepted.shared_card_id;
+WHERE shared_cards.shared_card_id = latest_accepted.shared_card_id
+  AND shared_cards.updated_at <= latest_accepted.updated_at;
 
 CREATE INDEX IF NOT EXISTS idx_professorit_shared_card_copies_workspace
   ON content.professorit_shared_card_copies(workspace_id, card_id);

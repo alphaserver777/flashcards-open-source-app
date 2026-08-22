@@ -94,12 +94,30 @@ export async function synchronizeProfessorITSharedCardsInExecutor(
       const contentChanged = row.front_text !== row.shared_front_text
         || row.back_text !== row.shared_back_text
         || row.card_type !== row.shared_card_type;
-      if (contentChanged && new Date(row.client_updated_at).getTime() > new Date(row.shared_updated_at).getTime()) {
+      if (contentChanged === false) continue;
+      if (new Date(row.client_updated_at).getTime() > new Date(row.shared_updated_at).getTime()) {
         await executor.query(
           "UPDATE content.professorit_shared_cards SET front_text = $2, back_text = $3, card_type = $4, updated_at = now() WHERE shared_card_id = $1",
           [row.shared_card_id, row.front_text, row.back_text, row.card_type],
         );
+        continue;
       }
+      const sharedUpdatedAt = toIsoString(row.shared_updated_at);
+      await updateCardInExecutor(
+        executor,
+        workspaceId,
+        row.card_id,
+        {
+          frontText: row.shared_front_text,
+          backText: row.shared_back_text,
+          cardType: row.shared_card_type,
+        },
+        {
+          clientUpdatedAt: sharedUpdatedAt,
+          lastModifiedByReplicaId: row.last_modified_by_replica_id,
+          lastOperationId: `professorit-shared-${row.shared_card_id}-${sharedUpdatedAt}`,
+        },
+      );
     }
     return;
   }
