@@ -21,7 +21,9 @@ function setProfessorITEnvironment(): void {
 
 function getCookieValue(header: string, name: string): string {
   const match = header.match(new RegExp(`${name}=([^;]+)`));
-  assert.notEqual(match, null);
+  if (match === null) {
+    assert.fail(`Cookie ${name} is missing`);
+  }
   return decodeURIComponent(match[1] ?? "");
 }
 
