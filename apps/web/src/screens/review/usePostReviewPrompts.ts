@@ -348,6 +348,10 @@ export function usePostReviewPrompts(params: UsePostReviewPromptsParams): UsePos
   async function runMobileAppPromotionCheck(
     promptContext: PostReviewPromptContext,
   ): Promise<MobileAppPromotionPromptDecision> {
+    if (import.meta.env.VITE_MOBILE_APP_PROMOTION_ENABLED === "false") {
+      return { kind: "skipped" };
+    }
+
     const contextWorkspaceId = promptContext.workspaceId;
     if (contextWorkspaceId === null || isReviewPromptUiBlocked()) {
       return { kind: "skipped" };
