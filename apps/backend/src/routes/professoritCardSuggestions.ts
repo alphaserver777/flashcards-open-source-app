@@ -21,6 +21,18 @@ type SuggestionRow = Readonly<{
   author_comment: string | null;
   created_at: Date | string;
   front_text: string;
+  submitter_display_name: string | null;
+  submitter_email: string | null;
+}>;
+
+type SuggestionCardRow = Readonly<{
+  card_id: string;
+  front_text: string;
+}>;
+
+type SubmitterRow = Readonly<{
+  display_name: string | null;
+  email: string | null;
 }>;
 
 function requireAuthor(userId: string): void {
@@ -48,13 +60,19 @@ export function createProfessorItCardSuggestionRoutes(options: Options): Hono<Ap
 
     const suggestionId = randomUUID();
     await transactionWithWorkspaceScope({ userId: requestContext.userId, workspaceId }, async (executor) => {
-      const card = await executor.query("SELECT card_id FROM content.cards WHERE workspace_id = $1 AND card_id = $2 AND deleted_at IS NULL", [workspaceId, cardId]);
-      if (card.rows[0] === undefined) {
+      const card = await executor.query<SuggestionCardRow>("SELECT card_id, front_text FROM content.cards WHERE workspace_id = $1 AND card_id = $2 AND deleted_at IS NULL", [workspaceId, cardId]);
+      const cardRow = card.rows[0];
+      if (cardRow === undefined) {
         throw new HttpError(404, "Card not found");
       }
+      const submitter = await executor.query<SubmitterRow>(
+        "SELECT display_name, email FROM org.user_settings WHERE user_id = $1",
+        [requestContext.userId],
+      );
+      const submitterRow = submitter.rows[0];
       await executor.query(
-        "INSERT INTO content.professorit_card_suggestions (suggestion_id, user_id, workspace_id, card_id, kind, message) VALUES ($1, $2, $3, $4, $5, $6)",
-        [suggestionId, requestContext.userId, workspaceId, cardId, kind, message],
+        "INSERT INTO content.professorit_card_suggestions (suggestion_id, user_id, workspace_id, card_id, kind, message, front_text, submitter_display_name, submitter_email) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+        [suggestionId, requestContext.userId, workspaceId, cardId, kind, message, cardRow.front_text, submitterRow?.display_name ?? null, submitterRow?.email ?? null],
       );
     });
     return context.json({ ok: true, suggestionId }, 201);
@@ -65,9 +83,8 @@ export function createProfessorItCardSuggestionRoutes(options: Options): Hono<Ap
     requireAuthor(requestContext.userId);
     const result = await unsafeQuery<SuggestionRow>(
       [
-        "SELECT suggestions.*, cards.front_text",
+        "SELECT suggestions.*",
         "FROM content.professorit_card_suggestions AS suggestions",
-        "JOIN content.cards AS cards ON cards.card_id = suggestions.card_id",
         "ORDER BY CASE suggestions.status WHEN 'pending' THEN 0 ELSE 1 END, suggestions.created_at DESC",
         "LIMIT 500",
       ].join(" "),
@@ -84,6 +101,8 @@ export function createProfessorItCardSuggestionRoutes(options: Options): Hono<Ap
       authorComment: row.author_comment,
       createdAt: new Date(row.created_at).toISOString(),
       frontText: row.front_text,
+      submitterDisplayName: row.submitter_display_name,
+      submitterEmail: row.submitter_email,
     })) });
   });
 

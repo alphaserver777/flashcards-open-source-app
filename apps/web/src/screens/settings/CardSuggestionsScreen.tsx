@@ -47,7 +47,8 @@ export function CardSuggestionsScreen(): ReactElement {
               <h2 className="panel-subtitle">{suggestion.frontText}</h2>
               <p>{suggestion.kind === "error" ? "Сообщение об ошибке" : "Дополнение ответа"}</p>
               <p>{suggestion.message}</p>
-              <p className="subtitle">Ученик: {suggestion.userId}</p>
+              <p className="subtitle">Ученик: {suggestion.submitterDisplayName ?? suggestion.submitterEmail ?? suggestion.userId}</p>
+              {suggestion.submitterDisplayName === null || suggestion.submitterEmail === null ? null : <p className="subtitle">{suggestion.submitterEmail}</p>}
               {suggestion.status === "pending" ? (
                 <div className="feedback-dialog-actions">
                   <button className="ghost-btn" type="button" disabled={busyId === suggestion.suggestionId} onClick={() => void review(suggestion.suggestionId, "rejected")}>Отклонить</button>

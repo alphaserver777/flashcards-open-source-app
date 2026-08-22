@@ -9,6 +9,8 @@ export type ProfessorItCardSuggestion = Readonly<{
   status: "pending" | "accepted" | "rejected";
   authorComment: string | null;
   createdAt: string;
+  submitterDisplayName: string | null;
+  submitterEmail: string | null;
 }>;
 
 export async function submitProfessorItCardSuggestion(input: Readonly<{
