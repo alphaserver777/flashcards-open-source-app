@@ -10,17 +10,24 @@ export function CardSuggestionsScreen(): ReactElement {
   const [suggestions, setSuggestions] = useState<ReadonlyArray<ProfessorItCardSuggestion>>([]);
   const [errorMessage, setErrorMessage] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   async function load(): Promise<void> {
+    setIsLoading(true);
     try {
       setSuggestions(await loadProfessorItCardSuggestions());
+      setErrorMessage("");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Не удалось загрузить предложения.");
+    } finally {
+      setIsLoading(false);
     }
   }
 
   useEffect(() => {
     void load();
+    const intervalId = window.setInterval(() => void load(), 15_000);
+    return () => window.clearInterval(intervalId);
   }, []);
 
   async function review(suggestionId: string, status: "accepted" | "rejected"): Promise<void> {
@@ -40,6 +47,7 @@ export function CardSuggestionsScreen(): ReactElement {
     <SettingsShell title="Предложения учеников" subtitle="Изменения не попадают в общие карточки без вашего решения." activeTab="workspace">
       {errorMessage === "" ? null : <p className="error-banner">{errorMessage}</p>}
       <SettingsGroup title={`Всего: ${suggestions.length}`}>
+        <button className="ghost-btn" type="button" disabled={isLoading} onClick={() => void load()}>{isLoading ? "Обновление…" : "Обновить"}</button>
         <div className="settings-nav-list">
           {suggestions.map((suggestion) => (
             <article className="content-card" key={suggestion.suggestionId}>
