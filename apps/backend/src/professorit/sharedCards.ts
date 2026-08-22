@@ -8,7 +8,7 @@ type SharedCardCopyRow = Readonly<{
   front_text: string;
   back_text: string;
   card_type: string;
-  client_updated_at: Date | string;
+  card_updated_at: Date | string;
   last_modified_by_replica_id: string;
   shared_front_text: string;
   shared_back_text: string;
@@ -78,7 +78,7 @@ export async function synchronizeProfessorITSharedCardsInExecutor(
   const result = await executor.query<SharedCardCopyRow>(
     [
       "SELECT shared_cards.shared_card_id, cards.card_id, cards.front_text, cards.back_text, cards.card_type,",
-      "cards.client_updated_at, cards.last_modified_by_replica_id,",
+      "cards.updated_at AS card_updated_at, cards.last_modified_by_replica_id,",
       "shared_cards.front_text AS shared_front_text, shared_cards.back_text AS shared_back_text,",
       "shared_cards.card_type AS shared_card_type, shared_cards.updated_at AS shared_updated_at",
       "FROM content.professorit_shared_card_copies AS copies",
@@ -95,7 +95,7 @@ export async function synchronizeProfessorITSharedCardsInExecutor(
         || row.back_text !== row.shared_back_text
         || row.card_type !== row.shared_card_type;
       if (contentChanged === false) continue;
-      if (new Date(row.client_updated_at).getTime() > new Date(row.shared_updated_at).getTime()) {
+      if (new Date(row.card_updated_at).getTime() > new Date(row.shared_updated_at).getTime()) {
         await executor.query(
           "UPDATE content.professorit_shared_cards SET front_text = $2, back_text = $3, card_type = $4, updated_at = now() WHERE shared_card_id = $1",
           [row.shared_card_id, row.front_text, row.back_text, row.card_type],
