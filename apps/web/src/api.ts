@@ -44,6 +44,7 @@ export {
   loadProfessorItCardSuggestions,
   reviewProfessorItCardSuggestion,
   submitProfessorItCardSuggestion,
+  updateProfessorItCardSuggestion,
 } from "./api/endpoints/professoritCardSuggestions";
 export type { ProfessorItCardSuggestion } from "./api/endpoints/professoritCardSuggestions";
 export {
