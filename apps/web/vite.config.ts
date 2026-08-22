@@ -83,6 +83,9 @@ export default defineConfig(({ command }) => {
   const shouldUploadSentrySourceMaps = sentrySourceMapUploadConfig !== undefined;
 
   return {
+    // The Professor IT deployment is served below /cards/ behind Traefik.
+    // Keep the default root path for the upstream web, iOS and Android work.
+    base: process.env.VITE_PUBLIC_BASE_PATH?.trim() || "/",
     plugins: [
       react(),
       ...(sentrySourceMapUploadConfig !== undefined

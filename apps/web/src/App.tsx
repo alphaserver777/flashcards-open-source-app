@@ -660,9 +660,13 @@ function AuthenticatedApp(): ReactElement {
 }
 
 export default function App(): ReactElement {
+  const routerBaseName = import.meta.env.BASE_URL === "/"
+    ? undefined
+    : import.meta.env.BASE_URL.replace(/\/$/u, "");
+
   return (
     <AppErrorBoundary fallback={<AppCrashFallback />}>
-      <BrowserRouter>
+      <BrowserRouter basename={routerBaseName}>
         <AppErrorDialogProvider>
           <TestModeProvider>
             <SentryRoutes>
