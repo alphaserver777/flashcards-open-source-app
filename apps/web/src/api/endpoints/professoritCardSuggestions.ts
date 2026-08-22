@@ -40,3 +40,13 @@ export async function reviewProfessorItCardSuggestion(
     body: JSON.stringify({ status }),
   }, allowAuthRecovery);
 }
+
+export async function updateProfessorItCardSuggestion(
+  suggestionId: string,
+  message: string,
+): Promise<void> {
+  await requestJson(`/professorit/card-suggestions/${suggestionId}/message`, {
+    method: "POST",
+    body: JSON.stringify({ message }),
+  }, allowAuthRecovery);
+}

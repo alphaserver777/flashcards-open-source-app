@@ -123,5 +123,24 @@ export function createProfessorItCardSuggestionRoutes(options: Options): Hono<Ap
     return context.json({ ok: true });
   });
 
+  app.post("/professorit/card-suggestions/:suggestionId/message", async (context) => {
+    const { requestContext } = await loadRequestContextFromRequest(context.req.raw, options.allowedOrigins);
+    requireAuthor(requestContext.userId);
+    const suggestionId = expectUuidString(context.req.param("suggestionId"), "suggestionId");
+    const body = expectRecord(await parseJsonBody(context.req.raw));
+    const message = expectNonEmptyString(body.message, "message");
+    if (message.length > 5000) {
+      throw new HttpError(400, "message must not exceed 5000 characters");
+    }
+    const result = await unsafeQuery(
+      "UPDATE content.professorit_card_suggestions SET message = $2, updated_at = now() WHERE suggestion_id = $1 RETURNING suggestion_id",
+      [suggestionId, message],
+    );
+    if (result.rowCount === 0) {
+      throw new HttpError(404, "Suggestion not found");
+    }
+    return context.json({ ok: true });
+  });
+
   return app;
 }
