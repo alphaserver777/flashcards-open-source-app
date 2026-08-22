@@ -85,10 +85,6 @@ export async function ensureProfessorITSharedDecksInExecutor(
     );
   }
 
-  if (publishedVersions.rows.length === 0) {
-    return;
-  }
-
   const demoCards = await executor.query<DemoCard>(
     [
       "SELECT card_id FROM content.cards",

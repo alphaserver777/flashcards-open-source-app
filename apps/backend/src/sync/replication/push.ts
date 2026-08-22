@@ -70,7 +70,10 @@ async function isCardScheduleOnlyMutation(
   );
   const existing = result.rows[0];
   if (existing === undefined) {
-    return false;
+    const snapshot = toCardSnapshotInput(operation.payload);
+    return snapshot.deletedAt === null
+      && snapshot.tags.length === 1
+      && snapshot.tags[0] === "demo";
   }
 
   const snapshot = toCardSnapshotInput(operation.payload);
