@@ -11,6 +11,7 @@
 **/.env
 **/.env.*
 !**/.env.example
+secrets/
 
 # AWS CDK local context and synth outputs
 infra/aws/cdk.context.json
