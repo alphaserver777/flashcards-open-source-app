@@ -89,7 +89,7 @@ const packageVersionId = await unsafeTransaction(async (executor) => {
     cards: cards.rows.map((card, ordinal) => ({
       packageCardId: randomUUID(),
       stableCardKey: card.card_id,
-      ordinal,
+      ordinal: ordinal + 1,
       frontText: card.front_text,
       backText: card.back_text,
       cardType: card.card_type,
