@@ -161,6 +161,7 @@ export function useReviewScreenController(
     visibleReviewDeckFilterMenuItems,
     visibleReviewTagFilterMenuItems,
   } = useReviewFilterMenu({
+    canManageSharedContent: session?.capabilities?.canManageSharedContent === true,
     deckSummaries,
     onSelectReviewFilter: selectReviewFilter,
     reviewTagSummaries,
@@ -555,6 +556,7 @@ export function useReviewScreenController(
       reviewSpeechMessage: reviewFeedbackMessage !== "" ? reviewFeedbackMessage : reviewSpeechMessage,
     },
     paneProps: {
+      canManageSharedContent: session?.capabilities?.canManageSharedContent === true,
       activeSpeechSide,
       hasCards,
       isAnswerVisible,

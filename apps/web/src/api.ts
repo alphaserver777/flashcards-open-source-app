@@ -41,6 +41,12 @@ export {
   submitFeedback,
 } from "./api/endpoints/feedback";
 export {
+  loadProfessorItCardSuggestions,
+  reviewProfessorItCardSuggestion,
+  submitProfessorItCardSuggestion,
+} from "./api/endpoints/professoritCardSuggestions";
+export type { ProfessorItCardSuggestion } from "./api/endpoints/professoritCardSuggestions";
+export {
   acceptFriendInvitation,
   createFriendInvitation,
   previewFriendInvitation,

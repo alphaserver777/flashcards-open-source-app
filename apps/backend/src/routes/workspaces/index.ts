@@ -36,6 +36,7 @@ import {
   resetWorkspaceProgressForUserWithObservationScope,
 } from "../../workspaces/management";
 import { HttpError } from "../../shared/errors";
+import { canManageProfessorItSharedContent } from "../../auth/professoritPermissions";
 import {
   loadRequestContextFromRequest,
   parseWorkspaceIdParam,
@@ -180,6 +181,9 @@ export function createWorkspaceRoutes(options: WorkspaceRoutesOptions): Hono<App
         async (): Promise<WorkspaceCreateRouteState> => {
           const loadedContext = await loadRequestContextFromRequestFn(context.req.raw, options.allowedOrigins);
           const currentRequestContext = loadedContext.requestContext;
+          if (canManageProfessorItSharedContent(currentRequestContext.userId) === false) {
+            throw new HttpError(403, "Only the Professor IT author can create workspaces.", "SHARED_CONTENT_FORBIDDEN");
+          }
           requestContext = currentRequestContext;
           const loadedBody = await loadBody();
           const workspaceName = expectNonEmptyString(loadedBody.name, "name");
@@ -298,6 +302,9 @@ export function createWorkspaceRoutes(options: WorkspaceRoutesOptions): Hono<App
   app.post("/workspaces/:workspaceId/rename", async (context) => {
     const { requestContext } = await loadRequestContextFromRequestFn(context.req.raw, options.allowedOrigins);
     requireHumanManagedConnectionAccess(requestContext.transport);
+    if (canManageProfessorItSharedContent(requestContext.userId) === false) {
+      throw new HttpError(403, "Only the Professor IT author can rename workspaces.", "SHARED_CONTENT_FORBIDDEN");
+    }
     const workspaceId = parseWorkspaceIdParam(context.req.param("workspaceId"));
     const requestId = context.get("requestId");
     const body = expectRecord(await parseJsonBody(context.req.raw));
@@ -372,6 +379,9 @@ export function createWorkspaceRoutes(options: WorkspaceRoutesOptions): Hono<App
   app.post("/workspaces/:workspaceId/delete", async (context) => {
     const { requestContext } = await loadRequestContextFromRequestFn(context.req.raw, options.allowedOrigins);
     requireHumanManagedConnectionAccess(requestContext.transport);
+    if (canManageProfessorItSharedContent(requestContext.userId) === false) {
+      throw new HttpError(403, "Only the Professor IT author can delete workspaces.", "SHARED_CONTENT_FORBIDDEN");
+    }
     const workspaceId = parseWorkspaceIdParam(context.req.param("workspaceId"));
     const requestId = context.get("requestId");
     const body = expectRecord(await parseJsonBody(context.req.raw));

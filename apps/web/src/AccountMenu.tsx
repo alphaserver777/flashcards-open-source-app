@@ -19,6 +19,7 @@ type Props = Readonly<{
   logoutUrl: string;
   onSelectWorkspace: (workspaceId: string) => Promise<void>;
   onCreateWorkspace: (name: string) => Promise<void>;
+  canManageWorkspaces: boolean;
 }>;
 
 const accountMenuViewportPaddingPx: number = 12;
@@ -39,6 +40,7 @@ export function AccountMenu(props: Props): ReactElement {
     logoutUrl,
     onSelectWorkspace,
     onCreateWorkspace,
+    canManageWorkspaces,
   } = props;
   const { indexedDbOpenRecoveryState, showCapturedTechnicalError } = useAppErrorDialog();
   const { t, formatDateTime } = useI18n();
@@ -235,7 +237,7 @@ export function AccountMenu(props: Props): ReactElement {
             ))}
           </>
         ) : null}
-        {isWorkspaceManagementLocked ? null : !isCreating ? (
+        {isWorkspaceManagementLocked || canManageWorkspaces === false ? null : !isCreating ? (
           <button
             className="account-menu-item account-menu-item-create"
             type="button"

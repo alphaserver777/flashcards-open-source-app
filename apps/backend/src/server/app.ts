@@ -36,6 +36,7 @@ import { createCatalogInstallRoutes } from "../routes/catalog/install";
 import { createGuestAuthRoutes } from "../routes/guestAuth";
 import { createWorkspaceRoutes } from "../routes/workspaces/index";
 import { createProfessorITAuthRoutes } from "../auth/professorit";
+import { createProfessorItCardSuggestionRoutes } from "../routes/professoritCardSuggestions";
 import {
   createAgentConnectionManagementErrorEnvelope,
 } from "../agent/setup";
@@ -412,6 +413,7 @@ function createMountedApp(basePath: string, allowedOrigins: Array<string>): Hono
   app.route("/", createCatalogInstallRoutes({ allowedOrigins }));
   app.route("/", createCardsRoutes({ allowedOrigins }));
   app.route("/", createFeedbackRoutes({ allowedOrigins }));
+  app.route("/", createProfessorItCardSuggestionRoutes({ allowedOrigins }));
   app.route("/", createWorkspacePackageRoutes({ allowedOrigins }));
   app.route("/", createMediaAssetsRoutes({ allowedOrigins }));
   app.route("/", createGlobalSnapshotRoutes({}));

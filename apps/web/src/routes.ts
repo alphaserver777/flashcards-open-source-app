@@ -45,6 +45,7 @@ export const settingsAccessDetailRoutePattern: string = "/settings/access/:acces
 export const settingsDecksRoute: string = "/settings/decks";
 export const settingsDeckNewRoute: string = "/settings/decks/new";
 export const settingsTagsRoute: string = "/settings/tags";
+export const settingsCardSuggestionsRoute: string = "/settings/card-suggestions";
 export const accountStatusRoute: string = "/settings/account-status";
 export const accountLegalRoute: string = "/settings/legal";
 export const accountSupportRoute: string = "/settings/support";

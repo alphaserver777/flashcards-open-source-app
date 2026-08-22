@@ -38,6 +38,7 @@ import {
   settingsSchedulerRoute,
   settingsServerRoute,
   settingsTagsRoute,
+  settingsCardSuggestionsRoute,
   settingsTestRoute,
   shareRoute,
 } from "../../routes";
@@ -111,6 +112,7 @@ export function SettingsScreen(): ReactElement {
   const schedulerValue = workspaceSettings === null ? t("common.unavailable") : workspaceSettings.algorithm.toUpperCase();
   const canCreateInvite = canLoadProgressServerBase(sessionVerificationState, cloudSettings);
   const appShareUrl = `${getAppConfig().appBaseUrl}${shareRoute}`;
+  const canManageSharedContent = session?.capabilities?.canManageSharedContent === true;
 
   function openInviteDialog(): void {
     if (indexedDbOpenRecoveryState.hasFailed()) {
@@ -311,34 +313,41 @@ export function SettingsScreen(): ReactElement {
             to={settingsAccessRoute}
             testId="settings-row-access"
           />
-          <SettingsNavigationCard
+          {canManageSharedContent ? <SettingsNavigationCard
+            title="Предложения учеников"
+            description="Дополнения и сообщения об ошибках в общих карточках."
+            value="Открыть"
+            to={settingsCardSuggestionsRoute}
+            testId="settings-row-card-suggestions"
+          /> : null}
+          {canManageSharedContent ? <SettingsNavigationCard
             title={t("settingsWorkspace.decks.title")}
             description={t("settingsWorkspace.decks.description")}
             value={t("common.open")}
             to={settingsDecksRoute}
             testId="settings-row-decks"
-          />
-          <SettingsNavigationCard
+          /> : null}
+          {canManageSharedContent ? <SettingsNavigationCard
             title={t("settingsWorkspace.tags.title")}
             description={t("settingsWorkspace.tags.description")}
             value={t("common.open")}
             to={settingsTagsRoute}
             testId="settings-row-tags"
-          />
-          <SettingsNavigationCard
+          /> : null}
+          {canManageSharedContent ? <SettingsNavigationCard
             title={t("settingsWorkspace.import.title")}
             description={t("settingsWorkspace.import.description")}
             value={t("settingsWorkspace.import.value")}
             to={settingsImportRoute}
             testId="settings-row-import"
-          />
-          <SettingsNavigationCard
+          /> : null}
+          {canManageSharedContent ? <SettingsNavigationCard
             title={t("settingsWorkspace.export.title")}
             description={t("settingsWorkspace.export.description")}
             value={t("settingsWorkspace.export.value")}
             to={settingsExportRoute}
             testId="settings-row-export"
-          />
+          /> : null}
         </div>
       </SettingsGroup>
 
@@ -412,13 +421,13 @@ export function SettingsScreen(): ReactElement {
             to={settingsResetStudyProgressRoute}
             testId="settings-row-reset-study-progress"
           />
-          <SettingsNavigationCard
+          {canManageSharedContent ? <SettingsNavigationCard
             title={t("settingsHome.deleteCurrentWorkspace.title")}
             description={t("settingsHome.deleteCurrentWorkspace.description")}
             value={t("settingsHome.deleteCurrentWorkspace.value")}
             to={settingsDeleteCurrentWorkspaceRoute}
             testId="settings-row-delete-current-workspace"
-          />
+          /> : null}
           <SettingsNavigationCard
             title={t("dangerZone.deleteTitle")}
             description={t("dangerZone.deleteDescription")}

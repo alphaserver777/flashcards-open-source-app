@@ -45,6 +45,7 @@ import {
   settingsSchedulerRoute,
   settingsServerRoute,
   settingsTagsRoute,
+  settingsCardSuggestionsRoute,
   settingsTestAnimationsRoute,
   settingsTestAppPlatformLinksRoute,
   settingsTestCatalogImportSuccessRoute,
@@ -184,6 +185,9 @@ const WorkspaceImportScreen = lazy(async () => import("./screens/settings/worksp
 const CatalogImportScreen = lazy(async () => import("./screens/catalog/CatalogImportScreen").then((module) => ({
   default: module.CatalogImportScreen,
 })));
+const CardSuggestionsScreen = lazy(async () => import("./screens/settings/CardSuggestionsScreen").then((module) => ({
+  default: module.CardSuggestionsScreen,
+})));
 
 function RouteContentFallback(props: Readonly<{ messageKey: TranslationKey }>): ReactElement {
   const { messageKey } = props;
@@ -260,6 +264,13 @@ function TestModeRouteGuard(props: Readonly<{ children: ReactElement }>): ReactE
   return children;
 }
 
+function SharedContentAuthorRoute(props: Readonly<{ children: ReactElement }>): ReactElement {
+  const { session } = useAppData();
+  return session?.capabilities?.canManageSharedContent === true
+    ? props.children
+    : <Navigate replace to={reviewRoute} />;
+}
+
 export function AppShell(): ReactElement {
   const location = useLocation();
   const { locale, t, formatDateTime } = useI18n();
@@ -279,6 +290,7 @@ export function AppShell(): ReactElement {
     chooseWorkspace,
     createWorkspace,
     cloudSettings,
+    session,
   } = useAppData();
   const { indexedDbOpenRecoveryState } = useAppErrorDialog();
   const [isMobileNavigationOpen, setIsMobileNavigationOpen] = useState<boolean>(false);
@@ -288,6 +300,10 @@ export function AppShell(): ReactElement {
   const sessionRestoringMessage = sessionVerificationState === "unverified" ? t("loading.restoringSession") : "";
   const isWorkspaceLocked = isWorkspaceManagementLocked(isSessionVerified, cloudSettings);
   const workspaceManagementLockedMessage = t("workspaceManagement.lockedMessage");
+  const canManageSharedContent = session?.capabilities?.canManageSharedContent === true;
+  const visiblePrimaryNavigationItems = canManageSharedContent
+    ? primaryNavigationItems
+    : primaryNavigationItems.filter((item) => item.route !== cardsRoute);
   const activeWorkspaceId: string | null = activeWorkspace?.workspaceId ?? null;
   const activeWorkspaceName: string | null = activeWorkspace?.name ?? null;
   const visibleTechnicalErrorMessage = t("appError.technicalError.message");
@@ -468,7 +484,7 @@ export function AppShell(): ReactElement {
               />
             </div>
             <nav className="nav" aria-label={t("shell.primaryNavigation")}>
-              {primaryNavigationItems.map((item) => (
+              {visiblePrimaryNavigationItems.map((item) => (
                 <NavLink key={item.route} className={({ isActive }) => `nav-link${isActive ? " nav-link-active" : ""}`} to={item.route}>
                   {t(item.labelKey)}
                 </NavLink>
@@ -499,6 +515,7 @@ export function AppShell(): ReactElement {
                 logoutUrl={buildLogoutUrl()}
                 onSelectWorkspace={chooseWorkspace}
                 onCreateWorkspace={createWorkspace}
+                canManageWorkspaces={canManageSharedContent}
               />
             </div>
           </div>
@@ -520,7 +537,7 @@ export function AppShell(): ReactElement {
             ariaDescribedBy={null}
             ariaModal={null}
           >
-            {primaryNavigationItems.map((item) => (
+            {visiblePrimaryNavigationItems.map((item) => (
               <NavLink
                 key={item.route}
                 className={({ isActive }) => `mobile-nav-link${isActive ? " mobile-nav-link-active" : ""}`}
@@ -559,9 +576,9 @@ export function RoutedShell(): ReactElement {
       <div ref={contentRef} className="chat-main-content chat-main-content-sidebar-closed">
         <SentryRoutes>
           <Route path="/" element={<Navigate replace to={reviewRoute} />} />
-          <Route path={cardsRoute} element={<CardsScreen />} />
-          <Route path={`${cardsRoute}/new`} element={<CardFormScreen />} />
-          <Route path={`${cardsRoute}/:cardId`} element={<CardFormScreen />} />
+          <Route path={cardsRoute} element={<SharedContentAuthorRoute><CardsScreen /></SharedContentAuthorRoute>} />
+          <Route path={`${cardsRoute}/new`} element={<SharedContentAuthorRoute><CardFormScreen /></SharedContentAuthorRoute>} />
+          <Route path={`${cardsRoute}/:cardId`} element={<SharedContentAuthorRoute><CardFormScreen /></SharedContentAuthorRoute>} />
           <Route path="/decks" element={<Navigate replace to={settingsDecksRoute} />} />
           <Route path="/decks/new" element={<Navigate replace to={settingsDeckNewRoute} />} />
           <Route path="/decks/:deckId/edit" element={<LegacyDeckEditRedirect />} />
@@ -588,11 +605,12 @@ export function RoutedShell(): ReactElement {
           <Route path={settingsExportRoute} element={renderDeferredRoute(<WorkspaceExportScreen />, "loading.exportSettings")} />
           <Route path={settingsResetStudyProgressRoute} element={renderDeferredRoute(<ResetStudyProgressScreen />, "loading.settings")} />
           <Route path={settingsDeleteCurrentWorkspaceRoute} element={renderDeferredRoute(<DeleteCurrentWorkspaceScreen />, "loading.currentWorkspace")} />
-          <Route path={settingsDecksRoute} element={renderDeferredRoute(<DecksScreen />, "loading.decks")} />
-          <Route path={settingsDeckNewRoute} element={renderDeferredRoute(<DeckFormScreen />, "loading.deckEditor")} />
-          <Route path={`${settingsDecksRoute}/:deckId/edit`} element={renderDeferredRoute(<DeckFormScreen />, "loading.deckEditor")} />
-          <Route path={`${settingsDecksRoute}/:deckId`} element={renderDeferredRoute(<DeckDetailScreen />, "loading.deckDetails")} />
-          <Route path={settingsTagsRoute} element={renderDeferredRoute(<TagsScreen />, "loading.tags")} />
+          <Route path={settingsDecksRoute} element={<SharedContentAuthorRoute>{renderDeferredRoute(<DecksScreen />, "loading.decks")}</SharedContentAuthorRoute>} />
+          <Route path={settingsDeckNewRoute} element={<SharedContentAuthorRoute>{renderDeferredRoute(<DeckFormScreen />, "loading.deckEditor")}</SharedContentAuthorRoute>} />
+          <Route path={`${settingsDecksRoute}/:deckId/edit`} element={<SharedContentAuthorRoute>{renderDeferredRoute(<DeckFormScreen />, "loading.deckEditor")}</SharedContentAuthorRoute>} />
+          <Route path={`${settingsDecksRoute}/:deckId`} element={<SharedContentAuthorRoute>{renderDeferredRoute(<DeckDetailScreen />, "loading.deckDetails")}</SharedContentAuthorRoute>} />
+          <Route path={settingsTagsRoute} element={<SharedContentAuthorRoute>{renderDeferredRoute(<TagsScreen />, "loading.tags")}</SharedContentAuthorRoute>} />
+          <Route path={settingsCardSuggestionsRoute} element={<SharedContentAuthorRoute>{renderDeferredRoute(<CardSuggestionsScreen />, "loading.settings")}</SharedContentAuthorRoute>} />
           <Route path={settingsDeviceRoute} element={renderDeferredRoute(<ThisDeviceSettingsScreen />, "loading.deviceDetails")} />
           <Route
             path={settingsTestRoute}

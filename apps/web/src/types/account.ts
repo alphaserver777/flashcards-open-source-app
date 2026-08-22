@@ -12,6 +12,9 @@ export type SessionInfo = Readonly<{
   authTransport: string;
   csrfToken: string | null;
   preferences: AccountPreferences;
+  capabilities?: Readonly<{
+    canManageSharedContent: boolean;
+  }>;
   profile: Readonly<{
     email: string | null;
     locale: string;

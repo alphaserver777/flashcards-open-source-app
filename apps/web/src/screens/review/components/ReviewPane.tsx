@@ -1,5 +1,6 @@
-import { useLayoutEffect, useRef, type ReactElement } from "react";
+import { useLayoutEffect, useRef, useState, type FormEvent, type ReactElement } from "react";
 import { Link } from "react-router";
+import { submitProfessorItCardSuggestion } from "../../../api";
 import type { ReviewRating } from "../../../../../backend/src/scheduling";
 import { useI18n } from "../../../i18n";
 import { cardsRoute } from "../../../routes";
@@ -26,6 +27,7 @@ const REVIEW_SCROLL_INTO_VIEW_OPTIONS = {
 } as const satisfies ScrollIntoViewOptions & { container: "nearest" };
 
 export type ReviewPaneProps = Readonly<{
+  canManageSharedContent: boolean;
   activeSpeechSide: ReviewSpeechSide | null;
   hasCards: boolean;
   isAnswerVisible: boolean;
@@ -59,12 +61,14 @@ type ReviewLoadingPaneProps = Readonly<{
 }>;
 
 type ReviewEmptyPaneProps = Readonly<{
+  canManageSharedContent: boolean;
   hasCards: boolean;
   onSwitchToAllCards: () => void;
   shouldShowSwitchToAllCardsAction: boolean;
 }>;
 
 type ReviewActiveCardPaneProps = Readonly<{
+  canManageSharedContent: boolean;
   activeSpeechSide: ReviewSpeechSide | null;
   isAnswerVisible: boolean;
   isSubmitting: boolean;
@@ -87,6 +91,67 @@ type ReviewRatingButtonColumnProps = Readonly<{
   onReview: (rating: ReviewRating) => void;
   options: ReadonlyArray<ReviewButtonOption>;
 }>;
+
+function CardSuggestionDialog(props: Readonly<{
+  card: Card;
+  workspaceId: string;
+  onClose: () => void;
+}>): ReactElement {
+  const [kind, setKind] = useState<"improvement" | "error">("improvement");
+  const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    const normalizedMessage = message.trim();
+    if (normalizedMessage === "" || isSubmitting) {
+      return;
+    }
+    setIsSubmitting(true);
+    setErrorMessage("");
+    try {
+      await submitProfessorItCardSuggestion({
+        workspaceId: props.workspaceId,
+        cardId: props.card.cardId,
+        kind,
+        message: normalizedMessage,
+      });
+      props.onClose();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Не удалось отправить предложение.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="feedback-dialog-overlay">
+      <form className="panel feedback-dialog" role="dialog" aria-modal="true" onSubmit={(event) => void submit(event)}>
+        <div>
+          <h2 className="title">Предложить улучшение</h2>
+          <p className="subtitle feedback-dialog-body">Предложение увидит автор. Карточка не изменится без проверки.</p>
+        </div>
+        <label className="form-label feedback-dialog-field">
+          <span>Тип предложения</span>
+          <select className="settings-input" value={kind} onChange={(event) => setKind(event.currentTarget.value as "improvement" | "error")}>
+            <option value="improvement">Дополнить ответ</option>
+            <option value="error">Сообщить об ошибке</option>
+          </select>
+        </label>
+        <label className="form-label feedback-dialog-field">
+          <span>Текст предложения</span>
+          <textarea className="settings-input feedback-textarea" maxLength={5000} rows={7} value={message} onChange={(event) => setMessage(event.currentTarget.value)} />
+        </label>
+        {errorMessage === "" ? null : <p className="error-banner" role="alert">{errorMessage}</p>}
+        <div className="feedback-dialog-actions">
+          <button className="ghost-btn" type="button" disabled={isSubmitting} onClick={props.onClose}>Отмена</button>
+          <button className="primary-btn" type="submit" disabled={isSubmitting || message.trim() === ""}>{isSubmitting ? "Отправка…" : "Отправить автору"}</button>
+        </div>
+      </form>
+    </div>
+  );
+}
 
 function handleDisabledSpeechToggle(): void {
 }
@@ -205,7 +270,7 @@ function ReviewLoadingPane(props: ReviewLoadingPaneProps): ReactElement {
 }
 
 function ReviewEmptyPane(props: ReviewEmptyPaneProps): ReactElement {
-  const { hasCards, onSwitchToAllCards, shouldShowSwitchToAllCardsAction } = props;
+  const { canManageSharedContent, hasCards, onSwitchToAllCards, shouldShowSwitchToAllCardsAction } = props;
   const { t } = useI18n();
 
   return (
@@ -217,9 +282,11 @@ function ReviewEmptyPane(props: ReviewEmptyPaneProps): ReactElement {
           : t("reviewScreen.empty.noCardsBody")}
       </p>
       <div className="review-empty-actions">
-        <Link className="ghost-btn" to={`${cardsRoute}/new`}>
-          {t("reviewScreen.actions.createCard")}
-        </Link>
+        {canManageSharedContent ? (
+          <Link className="ghost-btn" to={`${cardsRoute}/new`}>
+            {t("reviewScreen.actions.createCard")}
+          </Link>
+        ) : null}
         {shouldShowSwitchToAllCardsAction ? (
           <>
             <p className="review-empty-or">{t("reviewScreen.empty.or")}</p>
@@ -261,6 +328,7 @@ function ReviewRatingButtonColumn(props: ReviewRatingButtonColumnProps): ReactEl
 
 function ReviewActiveCardPane(props: ReviewActiveCardPaneProps): ReactElement {
   const {
+    canManageSharedContent,
     activeSpeechSide,
     isAnswerVisible,
     isSubmitting,
@@ -287,6 +355,7 @@ function ReviewActiveCardPane(props: ReviewActiveCardPaneProps): ReactElement {
   const backTargetRef = useRef<HTMLDivElement>(null);
   const previousCardIdRef = useRef<string | null>(null);
   const wasAnswerVisibleRef = useRef(false);
+  const [isSuggestionOpen, setIsSuggestionOpen] = useState(false);
 
   useLayoutEffect(() => {
     const didCardChange = previousCardIdRef.current !== selectedCard.cardId;
@@ -318,7 +387,7 @@ function ReviewActiveCardPane(props: ReviewActiveCardPaneProps): ReactElement {
             </span>
           </span>
         </div>
-        <div className="review-pane-head-actions">
+        {canManageSharedContent ? <div className="review-pane-head-actions">
           <button
             type="button"
             className="ghost-btn review-pane-edit-btn"
@@ -328,7 +397,7 @@ function ReviewActiveCardPane(props: ReviewActiveCardPaneProps): ReactElement {
           >
             <ReviewEditIcon />
           </button>
-        </div>
+        </div> : null}
       </div>
       <div className="review-card-stack">
         <div className="review-card-scroll-target" ref={frontTargetRef}>
@@ -381,6 +450,14 @@ function ReviewActiveCardPane(props: ReviewActiveCardPaneProps): ReactElement {
         ) : null}
       </div>
 
+      {isAnswerVisible && canManageSharedContent === false && workspaceId !== null ? (
+        <div className="review-meta">
+          <button className="ghost-btn" type="button" onClick={() => setIsSuggestionOpen(true)}>
+            Предложить улучшение или сообщить об ошибке
+          </button>
+        </div>
+      ) : null}
+
       <div className="review-actions-dock">
         {isAnswerVisible ? (
           reviewButtonErrorMessage !== "" ? (
@@ -414,12 +491,16 @@ function ReviewActiveCardPane(props: ReviewActiveCardPaneProps): ReactElement {
           </button>
         )}
       </div>
+      {isSuggestionOpen && workspaceId !== null ? (
+        <CardSuggestionDialog card={selectedCard} workspaceId={workspaceId} onClose={() => setIsSuggestionOpen(false)} />
+      ) : null}
     </>
   );
 }
 
 export function ReviewPane(props: ReviewPaneProps): ReactElement {
   const {
+    canManageSharedContent,
     activeSpeechSide,
     hasCards,
     isAnswerVisible,
@@ -468,6 +549,7 @@ export function ReviewPane(props: ReviewPaneProps): ReactElement {
       ) : null}
       {reviewPaneState === "empty" ? (
         <ReviewEmptyPane
+          canManageSharedContent={canManageSharedContent}
           hasCards={hasCards}
           onSwitchToAllCards={onSwitchToAllCards}
           shouldShowSwitchToAllCardsAction={shouldShowSwitchToAllCardsAction}
@@ -475,6 +557,7 @@ export function ReviewPane(props: ReviewPaneProps): ReactElement {
       ) : null}
       {reviewPaneState === "card" && selectedCard !== null ? (
         <ReviewActiveCardPane
+          canManageSharedContent={canManageSharedContent}
           activeSpeechSide={activeSpeechSide}
           isAnswerVisible={isAnswerVisible}
           isSubmitting={isSubmitting}

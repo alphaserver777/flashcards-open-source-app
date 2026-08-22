@@ -92,6 +92,15 @@ export function parseSessionInfoResponse(value: unknown, endpoint: string): Sess
     authTransport: parseRequiredField(objectValue, "authTransport", endpoint, "", parseString),
     csrfToken: parseRequiredField(objectValue, "csrfToken", endpoint, "", parseNullableString),
     preferences: parseRequiredField(objectValue, "preferences", endpoint, "", parseAccountPreferences),
+    capabilities: {
+      canManageSharedContent: parseRequiredField(
+        parseRequiredField(objectValue, "capabilities", endpoint, "", parseObject),
+        "canManageSharedContent",
+        endpoint,
+        "capabilities",
+        parseBoolean,
+      ),
+    },
     profile: {
       email: parseRequiredField(profileValue, "email", endpoint, "profile", parseNullableString),
       locale: parseRequiredField(profileValue, "locale", endpoint, "profile", parseString),

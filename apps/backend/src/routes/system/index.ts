@@ -8,6 +8,7 @@ import {
 import { unsafeQuery } from "../../database/unsafe";
 import { createSourceDiscoveryResponse } from "../../shared/sourceDiscovery";
 import { getSessionCsrfToken } from "../../auth/requestSecurity";
+import { canManageProfessorItSharedContent } from "../../auth/professoritPermissions";
 import { loadRequestContextFromRequest } from "../../server/requestContext";
 import type { AppEnv } from "../../server/app";
 import {
@@ -96,6 +97,9 @@ export function createSystemRoutes(options: SystemRoutesOptions): Hono<AppEnv> {
         createdAt: requestContext.userSettingsCreatedAt,
       },
       preferences: requestContext.preferences,
+      capabilities: {
+        canManageSharedContent: canManageProfessorItSharedContent(requestContext.userId),
+      },
     });
   });
 

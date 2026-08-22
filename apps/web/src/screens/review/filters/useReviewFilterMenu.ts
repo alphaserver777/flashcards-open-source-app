@@ -31,6 +31,7 @@ export type ReviewFilterChoiceMenuItem = Readonly<{
 }>;
 
 type UseReviewFilterMenuParams = Readonly<{
+  canManageSharedContent: boolean;
   deckSummaries: ReadonlyArray<DeckSummary>;
   onSelectReviewFilter: (reviewFilter: ReviewFilter) => void;
   reviewTagSummaries: ReadonlyArray<WorkspaceTagSummary>;
@@ -255,6 +256,7 @@ function isReviewFilterMenuContextEqual(
 
 export function useReviewFilterMenu(params: UseReviewFilterMenuParams): UseReviewFilterMenuResult {
   const {
+    canManageSharedContent,
     deckSummaries,
     onSelectReviewFilter,
     reviewTagSummaries,
@@ -294,7 +296,9 @@ export function useReviewFilterMenu(params: UseReviewFilterMenuParams): UseRevie
     reviewTagSummaries,
     displayedReviewFilter,
   );
-  const reviewFilterMenuItems = buildReviewFilterMenuItems(t("reviewFilterMenu.editDecks"));
+  const reviewFilterMenuItems = canManageSharedContent
+    ? buildReviewFilterMenuItems(t("reviewFilterMenu.editDecks"))
+    : [];
   const totalReviewFilterChoicesCount = reviewDeckFilterMenuItems.length
     + reviewTagFilterMenuItems.length;
   const shouldShowReviewDeckSearch = totalReviewFilterChoicesCount > 7;

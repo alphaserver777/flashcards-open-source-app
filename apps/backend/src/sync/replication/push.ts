@@ -32,8 +32,58 @@ import type {
   SyncPushOperationResult,
   SyncPushResult,
 } from "../contracts/types";
+import { canManageProfessorItSharedContent } from "../../auth/professoritPermissions";
+import { normalizeCardMetadata, normalizeCardType } from "../../cards/shared";
 
 const mediaAssetSyncWriteRejectedMessage = "media_asset sync writes are not accepted; use the media upload API to create or update media assets.";
+const sharedContentWriteRejectedMessage = "Shared card content can only be changed by a Professor IT author.";
+
+type ExistingCardContentRow = Readonly<{
+  front_text: string;
+  back_text: string;
+  card_type: string;
+  metadata: unknown;
+  tags: ReadonlyArray<string>;
+  deleted_at: Date | string | null;
+}>;
+
+function equalStringArrays(left: ReadonlyArray<string>, right: ReadonlyArray<string>): boolean {
+  const normalizedLeft = [...left].sort();
+  const normalizedRight = [...right].sort();
+  return normalizedLeft.length === normalizedRight.length
+    && normalizedLeft.every((value, index) => value === normalizedRight[index]);
+}
+
+async function isCardScheduleOnlyMutation(
+  executor: DatabaseExecutor,
+  workspaceId: string,
+  operation: Extract<SyncPushOperation, Readonly<{ entityType: "card" }>>,
+): Promise<boolean> {
+  const result = await executor.query<ExistingCardContentRow>(
+    [
+      "SELECT front_text, back_text, card_type, metadata, tags, deleted_at",
+      "FROM content.cards",
+      "WHERE workspace_id = $1 AND card_id = $2",
+      "LIMIT 1",
+    ].join(" "),
+    [workspaceId, operation.entityId],
+  );
+  const existing = result.rows[0];
+  if (existing === undefined) {
+    return false;
+  }
+
+  const snapshot = toCardSnapshotInput(operation.payload);
+  const existingDeletedAt = existing.deleted_at === null ? null : new Date(existing.deleted_at).toISOString();
+  const nextDeletedAt = snapshot.deletedAt === null ? null : new Date(snapshot.deletedAt).toISOString();
+  return snapshot.frontText === existing.front_text
+    && snapshot.backText === existing.back_text
+    && (snapshot.cardType === undefined || normalizeCardType(snapshot.cardType) === existing.card_type)
+    && (snapshot.metadata === undefined
+      || JSON.stringify(normalizeCardMetadata(snapshot.metadata)) === JSON.stringify(normalizeCardMetadata(existing.metadata)))
+    && equalStringArrays(snapshot.tags, existing.tags)
+    && nextDeletedAt === existingDeletedAt;
+}
 
 function toNumber(value: string | number | null): number | null {
   if (value === null) {
@@ -100,6 +150,7 @@ export async function processOperationInExecutor(
   replicaId: string,
   operation: SyncPushOperation,
   resolveReviewedBy: CurrentUserPublicProfileResolver,
+  canManageSharedContent: boolean = true,
 ): Promise<SyncPushOperationResult> {
   let resultingHotChangeId: number | null = null;
   let status: SyncPushOperationResult["status"] = "applied";
@@ -113,6 +164,17 @@ export async function processOperationInExecutor(
         status: "rejected",
         resultingHotChangeId: null,
         error: "card entityId must match payload.cardId",
+      };
+    }
+
+    if (canManageSharedContent === false && await isCardScheduleOnlyMutation(executor, workspaceId, operation) === false) {
+      return {
+        operationId: operation.operationId,
+        entityType: operation.entityType,
+        entityId: operation.entityId,
+        status: "rejected",
+        resultingHotChangeId: null,
+        error: sharedContentWriteRejectedMessage,
       };
     }
 
@@ -137,6 +199,17 @@ export async function processOperationInExecutor(
         status: "rejected",
         resultingHotChangeId: null,
         error: "deck entityId must match payload.deckId",
+      };
+    }
+
+    if (canManageSharedContent === false) {
+      return {
+        operationId: operation.operationId,
+        entityType: operation.entityType,
+        entityId: operation.entityId,
+        status: "rejected",
+        resultingHotChangeId: null,
+        error: sharedContentWriteRejectedMessage,
       };
     }
 
@@ -293,6 +366,7 @@ export async function processSyncPushOperationsInExecutor(
   workspaceId: string,
   replicaId: string,
   operations: ReadonlyArray<SyncPushOperation>,
+  canManageSharedContent: boolean = true,
 ): Promise<ReadonlyArray<SyncPushOperationResult>> {
   await ensureWorkspaceSyncMetadataInExecutor(executor, workspaceId);
   const existingAppliedOperations = await loadExistingAppliedOperations(
@@ -320,7 +394,14 @@ export async function processSyncPushOperationsInExecutor(
       continue;
     }
 
-    results.push(await processOperationInExecutor(executor, workspaceId, replicaId, operation, resolveReviewedBy));
+    results.push(await processOperationInExecutor(
+      executor,
+      workspaceId,
+      replicaId,
+      operation,
+      resolveReviewedBy,
+      canManageSharedContent,
+    ));
   }
 
   return results;
@@ -342,7 +423,13 @@ export async function processSyncPush(
         appVersion: input.appVersion ?? null,
       });
 
-      return processSyncPushOperationsInExecutor(executor, workspaceId, replicaId, input.operations);
+      return processSyncPushOperationsInExecutor(
+        executor,
+        workspaceId,
+        replicaId,
+        input.operations,
+        canManageProfessorItSharedContent(userId),
+      );
     },
   );
 
