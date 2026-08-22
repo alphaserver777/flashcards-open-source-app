@@ -5,10 +5,6 @@ import { AccountDeletionRecoveryGate } from "./accountDeletionRecovery";
 import { AppDataProvider, useAppData } from "./appData";
 import { AppErrorDialogProvider } from "./appError/AppErrorContext";
 import { buildLoginUrl, buildLogoutUrl } from "./api";
-import { ChatDraftProvider } from "./chat/composer/drafts/ChatDraftContext";
-import { ChatLayoutProvider, useChatLayout } from "./chat/layout/ChatLayoutContext";
-import { ChatSessionControllerProvider } from "./chat/sessionController";
-import { ChatToggle } from "./chat/layout/ChatToggle";
 import { AnchoredFloatingOverlay, useAnchoredFloatingOutsidePointerDismiss, type AnchoredFloatingOverlayMinimumWidth } from "./floating";
 import { useAppErrorDialog } from "./appError/AppErrorContext";
 import { type TranslationKey, useI18n } from "./i18n";
@@ -24,7 +20,6 @@ import {
   buildSettingsDeckEditRoute,
   catalogImportRoutePattern,
   cardsRoute,
-  chatRoute,
   friendInviteRoutePattern,
   friendInvitePreviewIndexRoute,
   friendInvitePreviewRoutePattern,
@@ -77,7 +72,6 @@ type PrimaryNavigationItem = {
 const primaryNavigationItems: ReadonlyArray<PrimaryNavigationItem> = [
   { route: reviewRoute, labelKey: "navigation.review" },
   { route: progressRoute, labelKey: "navigation.progress" },
-  { route: chatRoute, labelKey: "navigation.aiChat" },
   { route: cardsRoute, labelKey: "navigation.cards" },
   { route: settingsHubRoute, labelKey: "navigation.settings" },
 ];
@@ -88,7 +82,6 @@ const mobileNavigationMaxHeightPx: number = 420;
 const mobileNavigationMinimumWidth: AnchoredFloatingOverlayMinimumWidth = { kind: "reference" };
 const mobileNavigationFirstLinkSelector: string = "a[href]";
 
-const ChatPanel = lazy(async () => import("./chat/ChatPanel").then((module) => ({ default: module.ChatPanel })));
 const FriendInvitePreviewScreen = lazy(async () => import("./dev/previews/invite/FriendInvitePreviewScreen").then((module) => ({
   default: module.FriendInvitePreviewScreen,
 })));
@@ -202,75 +195,6 @@ function RouteContentFallback(props: Readonly<{ messageKey: TranslationKey }>): 
         <p className="subtitle">{t(messageKey)}</p>
       </section>
     </main>
-  );
-}
-
-function SidebarChatFallback(): ReactElement {
-  const { chatWidth } = useChatLayout();
-  const { t } = useI18n();
-
-  return (
-    <section className="chat-sidebar chat-sidebar-loading" style={{ width: chatWidth }}>
-      <div className="chat-loading-shell">
-        <div className="chat-header">
-          <span className="chat-header-title">{t("navigation.aiChat")}</span>
-        </div>
-        <div className="chat-messages">
-          <div className="chat-empty chat-empty-loading">
-            <p className="chat-empty-title">{t("loading.aiChat")}</p>
-            <div className="chat-loading-lines" aria-hidden="true">
-              <span className="chat-loading-line chat-loading-line-title" />
-              <span className="chat-loading-line" />
-              <span className="chat-loading-line" />
-              <span className="chat-loading-line chat-loading-line-short" />
-            </div>
-          </div>
-        </div>
-        <div className="chat-input-area chat-input-area-loading" aria-hidden="true">
-          <div className="chat-loading-composer" />
-          <div className="chat-loading-controls">
-            <span className="chat-loading-chip" />
-            <span className="chat-loading-chip chat-loading-chip-round" />
-            <span className="chat-loading-chip chat-loading-chip-round" />
-            <span className="chat-loading-chip chat-loading-chip-accent" />
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function FullscreenChatFallback(): ReactElement {
-  const { t } = useI18n();
-
-  return (
-    <section className="chat-sidebar-fullscreen chat-sidebar-fullscreen-loading">
-      <div className="chat-loading-shell">
-        <div className="chat-header">
-          <span className="chat-header-title">{t("navigation.aiChat")}</span>
-        </div>
-        <div className="chat-messages">
-          <div className="chat-empty chat-empty-loading">
-            <p className="chat-empty-title">{t("loading.aiChat")}</p>
-            <div className="chat-loading-lines" aria-hidden="true">
-              <span className="chat-loading-line chat-loading-line-title" />
-              <span className="chat-loading-line" />
-              <span className="chat-loading-line" />
-              <span className="chat-loading-line chat-loading-line-short" />
-            </div>
-          </div>
-        </div>
-        <div className="chat-input-area chat-input-area-loading" aria-hidden="true">
-          <div className="chat-loading-composer" />
-          <div className="chat-loading-controls">
-            <span className="chat-loading-chip" />
-            <span className="chat-loading-chip chat-loading-chip-round" />
-            <span className="chat-loading-chip chat-loading-chip-round" />
-            <span className="chat-loading-chip chat-loading-chip-accent" />
-          </div>
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -528,8 +452,8 @@ export function AppShell(): ReactElement {
             <div className="topbar-brand-block">
               <div className="topbar-brand-row">
                 <a className="topbar-brand" href={reviewRoute}>
-                  <span className="brand-full">Flashcards Open Source App</span>
-                  <span className="brand-short">Flashcards</span>
+                  <span className="brand-full">Professor IT — Карточки</span>
+                  <span className="brand-short">Professor IT</span>
                 </a>
                 {isSyncing ? <span className="topbar-sync-status">{t("app.syncing")}</span> : null}
                 {!isSyncing && sessionRestoringMessage !== "" ? <span className="topbar-sync-status">{sessionRestoringMessage}</span> : null}
@@ -619,33 +543,9 @@ export function AppShell(): ReactElement {
   );
 }
 
-function buildChatLayoutShellClassName(isFullscreenChat: boolean, isOpen: boolean): string {
-  const sidebarStateClassName = !isFullscreenChat && isOpen
-    ? "chat-layout-shell-sidebar-open"
-    : "chat-layout-shell-sidebar-closed";
-
-  return isFullscreenChat
-    ? `chat-layout-shell ${sidebarStateClassName} chat-layout-shell-fullscreen`
-    : `chat-layout-shell ${sidebarStateClassName}`;
-}
-
-function buildChatMainContentClassName(isFullscreenChat: boolean, isOpen: boolean): string {
-  const sidebarStateClassName = !isFullscreenChat && isOpen
-    ? "chat-main-content-sidebar-open"
-    : "chat-main-content-sidebar-closed";
-
-  return isFullscreenChat
-    ? `chat-main-content ${sidebarStateClassName} chat-main-content-fullscreen`
-    : `chat-main-content ${sidebarStateClassName}`;
-}
-
 export function RoutedShell(): ReactElement {
   const location = useLocation();
-  const { isOpen } = useChatLayout();
-  const isFullscreenChat = location.pathname === "/chat";
   const contentRef = useRef<HTMLDivElement | null>(null);
-  const shellClassName = buildChatLayoutShellClassName(isFullscreenChat, isOpen);
-  const contentClassName = buildChatMainContentClassName(isFullscreenChat, isOpen);
 
   useEffect(() => {
     if (contentRef.current !== null) {
@@ -655,13 +555,8 @@ export function RoutedShell(): ReactElement {
   }, [location.pathname]);
 
   return (
-    <div className={shellClassName}>
-      {!isFullscreenChat && isOpen ? (
-        <Suspense fallback={<SidebarChatFallback />}>
-          <ChatPanel mode="sidebar" />
-        </Suspense>
-      ) : null}
-      <div ref={contentRef} className={contentClassName}>
+    <div className="chat-layout-shell chat-layout-shell-sidebar-closed">
+      <div ref={contentRef} className="chat-main-content chat-main-content-sidebar-closed">
         <SentryRoutes>
           <Route path="/" element={<Navigate replace to={reviewRoute} />} />
           <Route path={cardsRoute} element={<CardsScreen />} />
@@ -745,24 +640,9 @@ export function RoutedShell(): ReactElement {
           <Route path={accountOpenSourceRoute} element={renderDeferredRoute(<OpenSourceSettingsScreen />, "loading.openSourceSettings")} />
           <Route path={accountAgentConnectionsRoute} element={renderDeferredRoute(<AgentConnectionsScreen />, "loading.agentConnections")} />
           <Route path={accountDangerZoneRoute} element={renderDeferredRoute(<DangerZoneScreen />, "loading.dangerZone")} />
-          <Route
-            path={chatRoute}
-            element={(
-              <Suspense fallback={(
-                <main className="container chat-page">
-                  <FullscreenChatFallback />
-                </main>
-              )}
-              >
-                <main className="container chat-page">
-                  <ChatPanel mode="fullscreen" />
-                </main>
-              </Suspense>
-            )}
-          />
+          <Route path="/chat" element={<Navigate replace to={reviewRoute} />} />
         </SentryRoutes>
       </div>
-      {!isFullscreenChat && !isOpen ? <ChatToggle /> : null}
     </div>
   );
 }
@@ -771,15 +651,9 @@ function AuthenticatedApp(): ReactElement {
   return (
     <AppDataProvider>
       <AIChatPreferencesProvider>
-        <ChatLayoutProvider>
-          <ChatSessionControllerProvider>
-            <ChatDraftProvider>
-              <AccountDeletionRecoveryGate>
-                <AppShell />
-              </AccountDeletionRecoveryGate>
-            </ChatDraftProvider>
-          </ChatSessionControllerProvider>
-        </ChatLayoutProvider>
+        <AccountDeletionRecoveryGate>
+          <AppShell />
+        </AccountDeletionRecoveryGate>
       </AIChatPreferencesProvider>
     </AppDataProvider>
   );

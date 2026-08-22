@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, type ReactElement } from "react";
 import { Link } from "react-router";
 import type { ReviewRating } from "../../../../../backend/src/scheduling";
 import { useI18n } from "../../../i18n";
-import { cardsRoute, chatRoute } from "../../../routes";
+import { cardsRoute } from "../../../routes";
 import type { Card } from "../../../types";
 import type { ReviewLoadingSnapshot } from "../../shared/loadingSnapshots";
 import { formatTagSummary } from "../../shared/featureFormatting";
@@ -219,10 +219,6 @@ function ReviewEmptyPane(props: ReviewEmptyPaneProps): ReactElement {
       <div className="review-empty-actions">
         <Link className="ghost-btn" to={`${cardsRoute}/new`}>
           {t("reviewScreen.actions.createCard")}
-        </Link>
-        <p className="review-empty-or">{t("reviewScreen.empty.or")}</p>
-        <Link className="primary-btn" to={chatRoute}>
-          {t("reviewScreen.actions.createWithAi")}
         </Link>
         {shouldShowSwitchToAllCardsAction ? (
           <>
