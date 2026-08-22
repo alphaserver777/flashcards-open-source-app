@@ -1,4 +1,4 @@
-export const AUTO_CREATED_WORKSPACE_NAME = "Personal";
+export const AUTO_CREATED_WORKSPACE_NAME = "Моё обучение";
 export const deleteWorkspaceConfirmationText = "delete workspace";
 export const resetWorkspaceProgressConfirmationText = "reset all progress for all cards in this workspace";
 

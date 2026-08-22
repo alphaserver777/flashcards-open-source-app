@@ -8,6 +8,7 @@ import {
   type DatabaseExecutor,
 } from "../database";
 import { unsafeTransaction } from "../database/unsafe";
+import { ensureProfessorITSharedDecksInExecutor } from "../professorit/sharedDecks";
 import { ensureUserSelectedWorkspaceInExecutor } from "../workspaces/selection";
 import { assertSubjectIsNotDeletedInExecutor } from "./deletedSubjects";
 import {
@@ -112,6 +113,13 @@ export async function ensureProfessorITUserProfile(
 ): Promise<UserProfile> {
   return transactionWithUserScope({ userId }, async (executor) => {
     const profile = await ensureUserProfileInExecutor(executor, userId, email);
+    if (profile.selectedWorkspaceId !== null) {
+      await ensureProfessorITSharedDecksInExecutor(
+        executor,
+        userId,
+        profile.selectedWorkspaceId,
+      );
+    }
     await executor.query(
       "UPDATE org.user_settings SET display_name = $2 WHERE user_id = $1",
       [userId, displayName],
