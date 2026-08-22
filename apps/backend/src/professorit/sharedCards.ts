@@ -8,12 +8,12 @@ type SharedCardCopyRow = Readonly<{
   front_text: string;
   back_text: string;
   card_type: string;
-  card_updated_at: Date | string;
   last_modified_by_replica_id: string;
   shared_front_text: string;
   shared_back_text: string;
   shared_card_type: string;
   shared_updated_at: Date | string;
+  shared_updated_at_applied: Date | string;
 }>;
 
 function professorITSharedCardsEnabled(): boolean {
@@ -51,8 +51,8 @@ export async function registerProfessorITSharedCardsInExecutor(
 
   await executor.query(
     [
-      "INSERT INTO content.professorit_shared_card_copies (shared_card_id, workspace_id, card_id)",
-      "SELECT shared_cards.shared_card_id, installs.workspace_id, (installed_card.value->>'cardId')::uuid",
+      "INSERT INTO content.professorit_shared_card_copies (shared_card_id, workspace_id, card_id, shared_updated_at_applied)",
+      "SELECT shared_cards.shared_card_id, installs.workspace_id, (installed_card.value->>'cardId')::uuid, shared_cards.updated_at",
       "FROM sync.catalog_package_install_idempotency AS installs",
       "CROSS JOIN LATERAL jsonb_array_elements(installs.install_result->'installedCards') AS installed_card(value)",
       "INNER JOIN catalog.package_versions AS versions ON versions.package_version_id = installs.package_version_id",
@@ -78,7 +78,7 @@ export async function synchronizeProfessorITSharedCardsInExecutor(
   const result = await executor.query<SharedCardCopyRow>(
     [
       "SELECT shared_cards.shared_card_id, cards.card_id, cards.front_text, cards.back_text, cards.card_type,",
-      "cards.updated_at AS card_updated_at, cards.last_modified_by_replica_id,",
+      "cards.last_modified_by_replica_id, copies.shared_updated_at_applied,",
       "shared_cards.front_text AS shared_front_text, shared_cards.back_text AS shared_back_text,",
       "shared_cards.card_type AS shared_card_type, shared_cards.updated_at AS shared_updated_at",
       "FROM content.professorit_shared_card_copies AS copies",
@@ -94,11 +94,25 @@ export async function synchronizeProfessorITSharedCardsInExecutor(
       const contentChanged = row.front_text !== row.shared_front_text
         || row.back_text !== row.shared_back_text
         || row.card_type !== row.shared_card_type;
-      if (contentChanged === false) continue;
-      if (new Date(row.card_updated_at).getTime() > new Date(row.shared_updated_at).getTime()) {
-        await executor.query(
-          "UPDATE content.professorit_shared_cards SET front_text = $2, back_text = $3, card_type = $4, updated_at = now() WHERE shared_card_id = $1",
+      if (contentChanged === false) {
+        if (new Date(row.shared_updated_at_applied).getTime() < new Date(row.shared_updated_at).getTime()) {
+          await executor.query(
+            "UPDATE content.professorit_shared_card_copies SET shared_updated_at_applied = $3 WHERE shared_card_id = $1 AND workspace_id = $2",
+            [row.shared_card_id, workspaceId, row.shared_updated_at],
+          );
+        }
+        continue;
+      }
+      if (new Date(row.shared_updated_at_applied).getTime() >= new Date(row.shared_updated_at).getTime()) {
+        const updatedSharedCard = await executor.query<Readonly<{ updated_at: Date | string }>>(
+          "UPDATE content.professorit_shared_cards SET front_text = $2, back_text = $3, card_type = $4, updated_at = now() WHERE shared_card_id = $1 RETURNING updated_at",
           [row.shared_card_id, row.front_text, row.back_text, row.card_type],
+        );
+        const updatedAt = updatedSharedCard.rows[0]?.updated_at;
+        if (updatedAt === undefined) throw new Error("Shared card update did not return a row");
+        await executor.query(
+          "UPDATE content.professorit_shared_card_copies SET shared_updated_at_applied = $3 WHERE shared_card_id = $1 AND workspace_id = $2",
+          [row.shared_card_id, workspaceId, updatedAt],
         );
         continue;
       }
@@ -118,16 +132,29 @@ export async function synchronizeProfessorITSharedCardsInExecutor(
           lastOperationId: `professorit-shared-${row.shared_card_id}-${sharedUpdatedAt}`,
         },
       );
+      await executor.query(
+        "UPDATE content.professorit_shared_card_copies SET shared_updated_at_applied = $3 WHERE shared_card_id = $1 AND workspace_id = $2",
+        [row.shared_card_id, workspaceId, row.shared_updated_at],
+      );
     }
     return;
   }
 
   for (const row of result.rows) {
-    if (
+    const contentMatches = (
       row.front_text === row.shared_front_text
       && row.back_text === row.shared_back_text
       && row.card_type === row.shared_card_type
-    ) continue;
+    );
+    if (contentMatches) {
+      if (new Date(row.shared_updated_at_applied).getTime() < new Date(row.shared_updated_at).getTime()) {
+        await executor.query(
+          "UPDATE content.professorit_shared_card_copies SET shared_updated_at_applied = $3 WHERE shared_card_id = $1 AND workspace_id = $2",
+          [row.shared_card_id, workspaceId, row.shared_updated_at],
+        );
+      }
+      continue;
+    }
     const sharedUpdatedAt = toIsoString(row.shared_updated_at);
     await updateCardInExecutor(
       executor,
@@ -143,6 +170,10 @@ export async function synchronizeProfessorITSharedCardsInExecutor(
         lastModifiedByReplicaId: row.last_modified_by_replica_id,
         lastOperationId: `professorit-shared-${row.shared_card_id}-${sharedUpdatedAt}`,
       },
+    );
+    await executor.query(
+      "UPDATE content.professorit_shared_card_copies SET shared_updated_at_applied = $3 WHERE shared_card_id = $1 AND workspace_id = $2",
+      [row.shared_card_id, workspaceId, row.shared_updated_at],
     );
   }
 }

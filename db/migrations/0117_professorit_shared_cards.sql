@@ -17,10 +17,23 @@ CREATE TABLE IF NOT EXISTS content.professorit_shared_card_copies (
   shared_card_id UUID NOT NULL REFERENCES content.professorit_shared_cards(shared_card_id) ON DELETE CASCADE,
   workspace_id UUID NOT NULL REFERENCES org.workspaces(workspace_id) ON DELETE CASCADE,
   card_id UUID NOT NULL REFERENCES content.cards(card_id) ON DELETE CASCADE,
+  shared_updated_at_applied TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (shared_card_id, workspace_id),
   UNIQUE (workspace_id, card_id)
 );
+
+ALTER TABLE content.professorit_shared_card_copies
+  ADD COLUMN IF NOT EXISTS shared_updated_at_applied TIMESTAMPTZ;
+
+UPDATE content.professorit_shared_card_copies AS copies
+SET shared_updated_at_applied = shared_cards.updated_at
+FROM content.professorit_shared_cards AS shared_cards
+WHERE shared_cards.shared_card_id = copies.shared_card_id
+  AND copies.shared_updated_at_applied IS NULL;
+
+ALTER TABLE content.professorit_shared_card_copies
+  ALTER COLUMN shared_updated_at_applied SET NOT NULL;
 
 WITH latest_cards AS (
   SELECT DISTINCT ON (versions.package_id, cards.stable_card_key)
@@ -52,11 +65,12 @@ SELECT package_id, stable_card_key, front_text, back_text, card_type, created_at
 FROM latest_cards
 ON CONFLICT (package_id, stable_card_key) DO NOTHING;
 
-INSERT INTO content.professorit_shared_card_copies (shared_card_id, workspace_id, card_id)
+INSERT INTO content.professorit_shared_card_copies (shared_card_id, workspace_id, card_id, shared_updated_at_applied)
 SELECT
   shared_cards.shared_card_id,
   installs.workspace_id,
-  (installed_card.value->>'cardId')::uuid
+  (installed_card.value->>'cardId')::uuid,
+  shared_cards.updated_at
 FROM sync.catalog_package_install_idempotency AS installs
 CROSS JOIN LATERAL jsonb_array_elements(installs.install_result->'installedCards') AS installed_card(value)
 INNER JOIN catalog.package_versions AS versions ON versions.package_version_id = installs.package_version_id
@@ -90,7 +104,7 @@ CREATE INDEX IF NOT EXISTS idx_professorit_shared_card_copies_workspace
   ON content.professorit_shared_card_copies(workspace_id, card_id);
 
 GRANT SELECT, INSERT, UPDATE ON TABLE content.professorit_shared_cards TO backend_app;
-GRANT SELECT, INSERT ON TABLE content.professorit_shared_card_copies TO backend_app;
+GRANT SELECT, INSERT, UPDATE ON TABLE content.professorit_shared_card_copies TO backend_app;
 
 COMMENT ON TABLE content.professorit_shared_cards IS
   'Canonical Professor IT card content shared by all learner workspaces.';
