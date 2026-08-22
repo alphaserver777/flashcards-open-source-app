@@ -106,17 +106,27 @@ const packageVersionId = await unsafeTransaction(async (executor) => {
 });
 
 const now = new Date().toISOString();
-const result = await transactionWithWorkspaceScope({ userId: targetUserId, workspaceId: targetWorkspaceId }, async (executor) => (
-  installCatalogPackageVersionInExecutor(executor, targetWorkspaceId, packageVersionId, {
-    installId: `professorit-linux-${targetWorkspaceId}`,
-    installedAt: now,
-    clientUpdatedAt: now,
-    lastModifiedByReplicaId: targetReplicaId,
-    operationIdPrefix: `professorit-linux-${Date.now()}`,
-    addImportTag: true,
-    importTag: "Professor IT · Linux",
-  })
+const installId = `professorit-linux-${targetWorkspaceId}`;
+const existingInstall = await transactionWithWorkspaceScope({ userId: targetUserId, workspaceId: targetWorkspaceId }, async (executor) => (
+  executor.query<Readonly<{ count: string }>>(
+    "SELECT count(*) FROM content.cards WHERE workspace_id = $1 AND deleted_at IS NULL AND metadata->'source'->>'importId' = $2",
+    [targetWorkspaceId, installId],
+  )
 ));
+const existingCount = Number(existingInstall.rows[0]?.count ?? "0");
+const installedCards = existingCount === 0
+  ? (await transactionWithWorkspaceScope({ userId: targetUserId, workspaceId: targetWorkspaceId }, async (executor) => (
+    installCatalogPackageVersionInExecutor(executor, targetWorkspaceId, packageVersionId, {
+      installId,
+      installedAt: now,
+      clientUpdatedAt: now,
+      lastModifiedByReplicaId: targetReplicaId,
+      operationIdPrefix: `professorit-linux-${Date.now()}`,
+      addImportTag: true,
+      importTag: "Professor IT · Linux",
+    })
+  ))).summary.cardCount
+  : existingCount;
 
 await transactionWithWorkspaceScope({ userId: targetUserId, workspaceId: targetWorkspaceId }, async (executor) => {
   const demo = await executor.query<Readonly<{ card_id: string }>>(
@@ -137,7 +147,7 @@ await transactionWithWorkspaceScope({ userId: targetUserId, workspaceId: targetW
   }
 });
 
-console.log(JSON.stringify({ packageVersionId, installedCards: result.summary.cardCount }, null, 2));
+console.log(JSON.stringify({ packageVersionId, installedCards }, null, 2));
 }
 
 main().catch((error: unknown) => {
