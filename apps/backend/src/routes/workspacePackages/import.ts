@@ -27,6 +27,7 @@ import {
 import { reportBackendExceptionOrBreadcrumb } from "../../observability/reporting";
 import { HttpError } from "../../shared/errors";
 import type { AppEnv } from "../../server/app";
+import { canManageProfessorItSharedContent } from "../../auth/professoritPermissions";
 import {
   createWorkspacePackageScope,
   getRequestContextUserId,
@@ -292,6 +293,9 @@ export function createWorkspacePackageImportRoutes(options: WorkspacePackageImpo
     try {
       const loadedContext = await loadRequestContextFromRequestFn(context.req.raw, options.allowedOrigins);
       requestContext = loadedContext.requestContext;
+      if (canManageProfessorItSharedContent(requestContext.userId) === false) {
+        throw new HttpError(403, "Only the Professor IT author can import private packages.", "SHARED_CONTENT_FORBIDDEN");
+      }
       workspaceId = parseWorkspaceIdParam(context.req.param("workspaceId"));
       await assertUserHasWorkspaceAccessFn(requestContext.userId, workspaceId);
       const packageBytes = await readWorkspacePackageImportPreviewZipBytes(context.req.raw);
@@ -343,6 +347,9 @@ export function createWorkspacePackageImportRoutes(options: WorkspacePackageImpo
     try {
       const loadedContext = await loadRequestContextFromRequestFn(context.req.raw, options.allowedOrigins);
       requestContext = loadedContext.requestContext;
+      if (canManageProfessorItSharedContent(requestContext.userId) === false) {
+        throw new HttpError(403, "Only the Professor IT author can import private packages.", "SHARED_CONTENT_FORBIDDEN");
+      }
       workspaceId = parseWorkspaceIdParam(context.req.param("workspaceId"));
       await assertUserHasWorkspaceAccessFn(requestContext.userId, workspaceId);
       const scope = createWorkspacePackageScope(requestId, context.req.path, context.req.method, requestContext.userId, workspaceId, context.get("clientAppVersion"), context.get("clientPlatform"));
