@@ -26,8 +26,6 @@ export function CardSuggestionsScreen(): ReactElement {
 
   useEffect(() => {
     void load();
-    const intervalId = window.setInterval(() => void load(), 15_000);
-    return () => window.clearInterval(intervalId);
   }, []);
 
   async function review(suggestionId: string, status: "accepted" | "rejected"): Promise<void> {

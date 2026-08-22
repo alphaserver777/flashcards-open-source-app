@@ -27,7 +27,7 @@ export async function submitProfessorItCardSuggestion(input: Readonly<{
 
 export async function loadProfessorItCardSuggestions(): Promise<ReadonlyArray<ProfessorItCardSuggestion>> {
   const response = await requestJson("/professorit/card-suggestions", { method: "GET" }, allowAuthRecovery);
-  const suggestions = (response as unknown as { suggestions?: unknown }).suggestions;
+  const suggestions = (response.value as { suggestions?: unknown } | null)?.suggestions;
   return Array.isArray(suggestions) ? suggestions as ReadonlyArray<ProfessorItCardSuggestion> : [];
 }
 
