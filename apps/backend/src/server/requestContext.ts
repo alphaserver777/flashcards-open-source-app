@@ -33,6 +33,7 @@ export type RequestContext = Readonly<{
   subjectUserId: string;
   selectedWorkspaceId: string | null;
   email: string | null;
+  displayName?: string | null;
   locale: string;
   userSettingsCreatedAt: string;
   preferences: AccountPreferences;
@@ -143,6 +144,7 @@ async function loadAuthenticatedRequestContext(
     subjectUserId,
     selectedWorkspaceId,
     email: userProfile.email,
+    displayName: userProfile.displayName,
     locale: userProfile.locale,
     userSettingsCreatedAt: userProfile.createdAt,
     preferences: userProfile.preferences,

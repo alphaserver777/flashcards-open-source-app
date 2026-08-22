@@ -24,6 +24,7 @@ export type UserProfile = Readonly<{
   userId: string;
   selectedWorkspaceId: string | null;
   email: string | null;
+  displayName?: string | null;
   locale: string;
   createdAt: string;
   preferences: AccountPreferences;
@@ -32,6 +33,7 @@ export type UserProfile = Readonly<{
 type UserSettingsRow = Readonly<{
   workspace_id: string | null;
   email: string | null;
+  display_name: string | null;
   locale: string;
   review_reaction_animations_enabled: boolean;
   created_at: Date | string;
@@ -62,7 +64,7 @@ export async function ensureUserProfileInExecutor(
 
   const existing = await executor.query<UserSettingsRow>(
     [
-      "SELECT workspace_id, email, locale, review_reaction_animations_enabled, created_at",
+      "SELECT workspace_id, email, display_name, locale, review_reaction_animations_enabled, created_at",
       "FROM org.user_settings",
       "WHERE user_id = $1",
       "FOR UPDATE",
@@ -85,6 +87,7 @@ export async function ensureUserProfileInExecutor(
     userId,
     selectedWorkspaceId,
     email: settings.email,
+    displayName: settings.display_name,
     locale: settings.locale,
     createdAt: toIsoString(settings.created_at),
     preferences: {

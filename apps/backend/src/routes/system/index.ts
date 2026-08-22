@@ -91,6 +91,7 @@ export function createSystemRoutes(options: SystemRoutesOptions): Hono<AppEnv> {
         : null,
       profile: {
         email: requestContext.email,
+        displayName: requestContext.displayName,
         locale: requestContext.locale,
         createdAt: requestContext.userSettingsCreatedAt,
       },
