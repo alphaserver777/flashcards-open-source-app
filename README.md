@@ -31,6 +31,7 @@ Interactive clients authenticate with OAuth 2.1 authorization code + PKCE and Dy
 
 ## Docs
 
+- [Professor IT self-hosted mode](docs/professorit-self-hosting.md)
 - [iOS app](apps/ios/README.md)
 - [Android app](apps/android/README.md)
 - [Web app](apps/web/README.md)
