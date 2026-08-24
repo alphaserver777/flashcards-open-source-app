@@ -7,6 +7,7 @@ import {
   publishCatalogPackageVersionInExecutor,
   updateCatalogPackageVersionReviewStatusInExecutor,
 } from "../catalog";
+import { transactionWithWorkspaceScope } from "../database";
 import { unsafeTransaction } from "../database/core";
 import { registerProfessorITSharedCardsInExecutor } from "../professorit/sharedCards";
 import { buildSystemWorkspaceReplicaId } from "../sync/identity/replica";
@@ -24,17 +25,8 @@ type PublishedVersionRow = Readonly<{
   version_number: number;
   card_count: number;
 }>;
-type AuthorWorkspaceRow = Readonly<{
-  user_id: string;
-  workspace_id: string;
-}>;
-
-function professorItAuthorUserIds(): ReadonlyArray<string> {
-  return (process.env.PROFESSORIT_AUTHOR_USER_IDS ?? "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter((value) => value !== "");
-}
+const targetUserId = process.env.PROFESSORIT_TARGET_USER_ID;
+const targetWorkspaceId = process.env.PROFESSORIT_TARGET_WORKSPACE_ID;
 
 async function publishDeck(): Promise<string> {
   return unsafeTransaction(async (executor) => {
@@ -147,39 +139,33 @@ async function publishDeck(): Promise<string> {
 }
 
 async function installForAuthors(packageVersionId: string): Promise<number> {
-  const authorIds = professorItAuthorUserIds();
-  if (authorIds.length === 0) {
-    throw new Error("PROFESSORIT_AUTHOR_USER_IDS does not contain an author account.");
+  if (targetUserId === undefined || targetWorkspaceId === undefined) {
+    throw new Error(
+      "Set PROFESSORIT_TARGET_USER_ID and PROFESSORIT_TARGET_WORKSPACE_ID for the author workspace.",
+    );
   }
 
-  return unsafeTransaction(async (executor) => {
-    const workspaces = await executor.query<AuthorWorkspaceRow>(
-      "SELECT user_id, workspace_id FROM org.user_settings WHERE user_id = ANY($1::text[])",
-      [authorIds],
-    );
-    if (workspaces.rows.length === 0) {
-      throw new Error("Professor IT author workspace was not found.");
-    }
-
-    let installed = 0;
-    for (const workspace of workspaces.rows) {
+  return transactionWithWorkspaceScope(
+    { userId: targetUserId, workspaceId: targetWorkspaceId },
+    async (executor) => {
       const existing = await executor.query<Readonly<{ count: string }>>(
         [
           "SELECT count(*) FROM sync.catalog_package_install_idempotency",
           "WHERE workspace_id = $1 AND package_version_id = $2",
         ].join(" "),
-        [workspace.workspace_id, packageVersionId],
+        [targetWorkspaceId, packageVersionId],
       );
+      let installed = 0;
       if (Number(existing.rows[0]?.count ?? "0") === 0) {
         const installedAt = new Date().toISOString();
         const replicaId = buildSystemWorkspaceReplicaId(
-          workspace.workspace_id,
+          targetWorkspaceId,
           "workspace_seed",
           "workspace-seed",
         );
         await installCatalogPackageVersionInExecutor(
           executor,
-          workspace.workspace_id,
+          targetWorkspaceId,
           packageVersionId,
           {
             installId: `professorit-git-${packageVersionId}`,
@@ -193,10 +179,10 @@ async function installForAuthors(packageVersionId: string): Promise<number> {
         );
         installed += professorItGitDeck.length;
       }
-      await registerProfessorITSharedCardsInExecutor(executor, workspace.workspace_id);
-    }
-    return installed;
-  });
+      await registerProfessorITSharedCardsInExecutor(executor, targetWorkspaceId);
+      return installed;
+    },
+  );
 }
 
 async function main(): Promise<void> {
