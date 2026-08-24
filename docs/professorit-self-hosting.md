@@ -41,6 +41,30 @@ queue so the page remains an actionable inbox rather than an archive.
 
 The Professor IT web mode also hides AI chat and the mobile promotion dialog.
 
+## Central decks
+
+The repository contains reproducible source data and bootstrap scripts for the
+Professor IT Linux and Git decks. The Git deck is published under catalog slug
+`professor-it-git-foundation` and currently contains 50 Russian interview and
+practice cards. Its source of truth is
+`apps/backend/src/scripts/data/professorItGitDeck.ts`.
+
+Publish the deck and install it into the author's workspace with an explicitly
+scoped invocation:
+
+```bash
+cd apps/backend
+PROFESSORIT_TARGET_USER_ID='frappe:author@example.com' \
+  PROFESSORIT_TARGET_WORKSPACE_ID='workspace-uuid' \
+  npx tsx src/scripts/bootstrapProfessorItGitDeck.ts
+```
+
+The command is idempotent for a published release: running it again neither
+duplicates package cards nor installs a second author copy. Learners receive
+all published Professor IT decks automatically on their next authenticated
+request. Shared content remains centralized while scheduling and progress stay
+inside each learner's workspace.
+
 ## Deployment topology
 
 ```text
