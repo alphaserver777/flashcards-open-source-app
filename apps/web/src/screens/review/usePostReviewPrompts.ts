@@ -252,6 +252,10 @@ export function usePostReviewPrompts(params: UsePostReviewPromptsParams): UsePos
   }
 
   async function maybeOpenAutomaticFeedbackPrompt(): Promise<void> {
+    if (import.meta.env.VITE_AUTOMATIC_FEEDBACK_PROMPT_ENABLED === "false") {
+      return;
+    }
+
     if (workspaceId === null || isReviewPromptUiBlocked()) {
       return;
     }

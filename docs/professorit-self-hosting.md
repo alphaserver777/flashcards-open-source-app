@@ -39,7 +39,9 @@ A suggestion is never applied automatically. The author may edit its proposed
 text and then accept or decline it. Reviewed suggestions leave the pending
 queue so the page remains an actionable inbox rather than an archive.
 
-The Professor IT web mode also hides AI chat and the mobile promotion dialog.
+The Professor IT web mode also hides AI chat, the automatic feedback prompt
+and the mobile promotion dialog. Learner content suggestions remain available
+through the dedicated shared-card workflow.
 
 ## Central decks
 

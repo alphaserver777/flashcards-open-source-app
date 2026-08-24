@@ -9,6 +9,7 @@ interface ImportMetaEnv {
   readonly VITE_SENTRY_ENVIRONMENT?: string;
   readonly VITE_SENTRY_TRACES_SAMPLE_RATE?: string;
   readonly VITE_ENABLE_DEV_PREVIEWS?: string;
+  readonly VITE_AUTOMATIC_FEEDBACK_PROMPT_ENABLED?: string;
   readonly VITE_MOBILE_APP_PROMOTION_ENABLED?: string;
 }
 
