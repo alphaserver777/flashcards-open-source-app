@@ -4,7 +4,7 @@ import {
   useAppErrorDialog,
 } from "../../../../appError/AppErrorContext";
 import type { TranslationKey } from "../../../../i18n";
-import { loadProfessorItSharedCardMetadata } from "../../../../api";
+import { resolveProfessorItLmsLesson } from "../../../../api";
 import { UnsupportedImagePreparationError } from "../../../../media/imagePreparation";
 import { captureAppOperationError } from "../../../../observability/appOperationObservation";
 import { getExpectedCardMutationInlineErrorMessage } from "../../../cards/cardMutationErrors";
@@ -385,30 +385,6 @@ export function useReviewCardEditor(params: UseReviewCardEditorParams): UseRevie
     setIsEditorSaving(false);
     setIsEditorPresented(true);
 
-    if (workspaceId !== null && card.metadata.professorIt === undefined) {
-      void loadProfessorItSharedCardMetadata(workspaceId, card.cardId)
-        .then((professorIt) => {
-          const identity = editorIdentityRef.current;
-          if (
-            identity === null
-            || identity.cardId !== card.cardId
-            || identity.presentationGeneration !== presentationGeneration
-            || isEditorPresentedRef.current === false
-          ) return;
-          const currentFormState = editorFormStateRef.current;
-          const nextFormState: CardFormState = {
-            ...currentFormState,
-            metadata: { ...currentFormState.metadata, professorIt },
-          };
-          editorFormRevisionRef.current += 1;
-          editorFormStateRef.current = nextFormState;
-          setEditorFormState(nextFormState);
-        })
-        .catch((error: unknown) => {
-          if (editorIdentityRef.current?.presentationGeneration !== presentationGeneration) return;
-          setEditorErrorMessage(error instanceof Error ? error.message : "Не удалось загрузить связь с материалом курса.");
-        });
-    }
   }
 
   function handleEditorFormStateChange(nextFormState: CardFormState): void {
@@ -438,12 +414,45 @@ export function useReviewCardEditor(params: UseReviewCardEditorParams): UseRevie
       return;
     }
     const submittedFormRevision = editorFormRevisionRef.current;
-    const submittedFormState = editorFormStateRef.current;
+    let submittedFormState = editorFormStateRef.current;
     setIsEditorSaving(true);
     setEditorErrorMessage("");
     setErrorMessage("");
 
     try {
+      const professorIt = submittedFormState.metadata.professorIt;
+      if (professorIt !== undefined) {
+        const materialUrl = professorIt.lmsLessonUrl?.trim() ?? "";
+        if (materialUrl === "") {
+          submittedFormState = {
+            ...submittedFormState,
+            tags: [],
+            metadata: { ...submittedFormState.metadata, professorIt: { ...professorIt, lmsLessonId: null, lmsLessonTitle: null, lmsLessonUrl: null } },
+          };
+        } else {
+          const expectedStableUrl = professorIt.lmsLessonId === null
+            ? null
+            : `https://academy.professorit.ru/professorit/lesson/${encodeURIComponent(professorIt.lmsLessonId)}`;
+          if (materialUrl !== expectedStableUrl) {
+            const lesson = await resolveProfessorItLmsLesson(materialUrl);
+            submittedFormState = {
+              ...submittedFormState,
+              tags: [],
+              metadata: {
+                ...submittedFormState.metadata,
+                professorIt: {
+                  ...professorIt,
+                  lmsLessonId: lesson.lesson_id,
+                  lmsLessonTitle: lesson.title,
+                  lmsLessonUrl: `https://academy.professorit.ru${lesson.stable_url}`,
+                },
+              },
+            };
+          } else {
+            submittedFormState = { ...submittedFormState, tags: [] };
+          }
+        }
+      }
       const savedCard = await updateCardItem(editingCardId, {
         frontText: submittedFormState.frontText,
         backText: submittedFormState.backText,

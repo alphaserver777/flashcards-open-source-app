@@ -1038,7 +1038,7 @@ export function CardsScreen(): ReactElement {
                         <span className="cards-loading-cell-text">{card.backText === "" ? t("common.noBackText") : card.backText}</span>
                       </td>
                       <td className="txn-cell cards-col-tags">
-                        <span className="cards-loading-cell-text">{formatTagSummary(card.tags, t)}</span>
+                        <span className="cards-loading-cell-text">{formatTagSummary(card.tags.filter((tag) => !["subject:", "topic:", "level:", "type:", "material:"].some((prefix) => tag.toLowerCase().startsWith(prefix))), t)}</span>
                       </td>
                       <td className="txn-cell txn-cell-mono cards-col-due">{formatNullableDateTime(card.dueAt, formatDateTime, t)}</td>
                       <td className="txn-cell txn-cell-mono cards-col-reps">{card.reps}</td>
@@ -1097,16 +1097,20 @@ export function CardsScreen(): ReactElement {
                       onEditorOpen={handleInlineEditorOpen}
                       onEditorClose={handleInlineEditorClose}
                     />
-                    <EditableCardTagsCell
-                      editorToken={{ cardId: card.cardId, field: "tags" }}
-                      value={card.tags}
-                      suggestions={tagSuggestions}
-                      cellClassName="cards-col-tags cards-tag-cell"
-                      saving={isSaving}
-                      onCommit={(nextValue) => handleInlineSave(card, { tags: nextValue })}
-                      onEditorOpen={handleInlineEditorOpen}
-                      onEditorClose={handleInlineEditorClose}
-                    />
+                    {card.metadata.professorIt === undefined ? (
+                      <EditableCardTagsCell
+                        editorToken={{ cardId: card.cardId, field: "tags" }}
+                        value={card.tags}
+                        suggestions={tagSuggestions}
+                        cellClassName="cards-col-tags cards-tag-cell"
+                        saving={isSaving}
+                        onCommit={(nextValue) => handleInlineSave(card, { tags: nextValue })}
+                        onEditorOpen={handleInlineEditorOpen}
+                        onEditorClose={handleInlineEditorClose}
+                      />
+                    ) : (
+                      <td className="txn-cell cards-col-tags">{card.metadata.professorIt.subject}</td>
+                    )}
                     <td className="txn-cell txn-cell-mono cards-col-due">{formatNullableDateTime(card.dueAt, formatDateTime, t)}</td>
                     <td className="txn-cell txn-cell-mono cards-col-reps">{card.reps}</td>
                     <td className="txn-cell txn-cell-mono cards-col-lapses">{card.lapses}</td>

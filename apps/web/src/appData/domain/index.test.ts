@@ -399,6 +399,35 @@ describe("review tag matching domain", () => {
     }, card)).toBe(true);
   });
 
+  it("filters Professor IT cards by structured metadata without stored tags", () => {
+    const card = {
+      ...makeReviewOrderCard("professorit-structured-filter", null, "2026-03-10T09:00:00.000Z", null),
+      tags: [],
+      metadata: {
+        ...makeDefaultCardMetadata("2026-03-10T09:00:00.000Z"),
+        professorIt: {
+          sharedCardId: "shared-card-1",
+          subject: "linux",
+          topic: "processes",
+          difficulty: "middle" as const,
+          questionType: "case" as const,
+          lmsLessonId: "lesson-1",
+          lmsLessonTitle: "Процессы и ресурсы",
+          lmsLessonUrl: "https://academy.professorit.ru/professorit/lesson/lesson-1",
+          interviewSource: null,
+          publicationStatus: "published" as const,
+        },
+      },
+    };
+
+    expect(matchesCardFilter({
+      tags: ["subject:linux", "topic:processes", "level:middle", "type:case", "material:linked"],
+    }, card)).toBe(true);
+    expect(matchesCardFilter({
+      tags: ["subject:linux", "level:senior"],
+    }, card)).toBe(false);
+  });
+
   it("orders LWW metadata by UTF-8 bytes", () => {
     const metadata = (lastOperationId: string) => ({
       clientUpdatedAt: "2026-03-10T09:00:00.000Z", lastModifiedByReplicaId: "replica", lastOperationId,

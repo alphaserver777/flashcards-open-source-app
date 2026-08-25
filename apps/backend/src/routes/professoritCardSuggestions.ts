@@ -43,23 +43,50 @@ type LmsLessonSearchResult = Readonly<{
   stable_url: string;
 }>;
 
+type LmsLessonReference = Readonly<{
+  lesson_id: string;
+  title: string | null;
+  course: string;
+  chapter: string;
+  stable_url: string;
+}>;
+
+function parseLmsLessonUrl(value: string): Readonly<{
+  course: string;
+  chapterIndex: string;
+  lessonIndex: string;
+}> {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new HttpError(400, "Введите полную ссылку на урок LMS");
+  }
+  if (url.protocol !== "https:" || url.hostname !== "academy.professorit.ru") {
+    throw new HttpError(400, "Материал должен находиться на academy.professorit.ru");
+  }
+  const courseMatch = url.pathname.match(/^\/lms\/courses\/([^/]+)(?:\/learn\/(\d+)-(\d+))?\/?$/);
+  const editLessonMatch = url.searchParams.get("editLesson")?.match(/^(\d+)-(\d+)$/) ?? null;
+  if (courseMatch === null) {
+    throw new HttpError(400, "Ссылка не указывает на урок LMS");
+  }
+  const chapterIndex = courseMatch[2] ?? editLessonMatch?.[1];
+  const lessonIndex = courseMatch[3] ?? editLessonMatch?.[2];
+  if (chapterIndex === undefined || lessonIndex === undefined) {
+    throw new HttpError(400, "Откройте нужный урок и скопируйте его ссылку");
+  }
+  return {
+    course: decodeURIComponent(courseMatch[1] ?? ""),
+    chapterIndex,
+    lessonIndex,
+  };
+}
+
 type SharedCardQuestionRow = Readonly<{
   shared_card_id: string;
   front_text: string;
   subject_slug: string;
   topic_slug: string;
-  publication_status: "draft" | "published" | "archived";
-}>;
-
-type SharedCardMetadataRow = Readonly<{
-  shared_card_id: string;
-  subject_slug: string;
-  topic_slug: string;
-  difficulty: "junior" | "middle" | "senior";
-  question_type: "theory" | "command" | "case";
-  lms_lesson_id: string | null;
-  lms_lesson_title: string | null;
-  interview_source: string | null;
   publication_status: "draft" | "published" | "archived";
 }>;
 
@@ -170,6 +197,56 @@ export function createProfessorItCardSuggestionRoutes(options: Options): Hono<Ap
     const body = await response.json() as Readonly<{ message?: unknown }>;
     const lessons = Array.isArray(body.message) ? body.message as ReadonlyArray<LmsLessonSearchResult> : [];
     return context.json({ lessons });
+  });
+
+  app.post("/professorit/lms-lessons/resolve", async (context) => {
+    const { requestContext } = await loadRequestContextFromRequest(context.req.raw, options.allowedOrigins);
+    requireAuthor(requestContext.userId);
+    const body = expectRecord(await parseJsonBody(context.req.raw));
+    const inputUrl = expectNonEmptyString(body.url, "url");
+    const stableMatch = (() => {
+      try {
+        const url = new URL(inputUrl);
+        return url.protocol === "https:" && url.hostname === "academy.professorit.ru"
+          ? url.pathname.match(/^\/professorit\/lesson\/(.+)$/)
+          : null;
+      } catch {
+        return null;
+      }
+    })();
+    if (stableMatch !== null) {
+      const lessonId = decodeURIComponent(stableMatch[1] ?? "").trim();
+      if (lessonId === "") throw new HttpError(400, "Ссылка не содержит урок LMS");
+      return context.json({
+        lesson: {
+          lesson_id: lessonId,
+          title: null,
+          course: "",
+          chapter: "",
+          stable_url: `/professorit/lesson/${encodeURIComponent(lessonId)}`,
+        },
+      });
+    }
+
+    const reference = parseLmsLessonUrl(inputUrl);
+    const secret = process.env.PROFESSORIT_LESSON_SEARCH_SECRET?.trim() ?? "";
+    if (secret === "") throw new HttpError(503, "Связь с уроками LMS не настроена");
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const canonical = `${timestamp}\n${reference.course}\n${reference.chapterIndex}\n${reference.lessonIndex}`;
+    const signature = createHmac("sha256", secret).update(canonical).digest("hex");
+    const baseUrl = (process.env.PROFESSORIT_LMS_INTERNAL_URL ?? "https://academy.professorit.ru").replace(/\/$/, "");
+    const resolveUrl = new URL(`${baseUrl}/api/method/professorit_lms.lessons.resolve_lesson_reference_internal`);
+    resolveUrl.searchParams.set("course", reference.course);
+    resolveUrl.searchParams.set("chapter_index", reference.chapterIndex);
+    resolveUrl.searchParams.set("lesson_index", reference.lessonIndex);
+    resolveUrl.searchParams.set("timestamp", timestamp);
+    resolveUrl.searchParams.set("signature", signature);
+    const response = await fetch(resolveUrl, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(5000) });
+    if (!response.ok) throw new HttpError(422, "Урок по этой ссылке не найден");
+    const responseBody = await response.json() as Readonly<{ message?: unknown }>;
+    const lesson = responseBody.message;
+    if (typeof lesson !== "object" || lesson === null) throw new HttpError(502, "LMS вернула некорректный ответ");
+    return context.json({ lesson: lesson as LmsLessonReference });
   });
 
   app.get("/professorit/shared-cards/near-duplicates", async (context) => {
@@ -310,40 +387,6 @@ export function createProfessorItCardSuggestionRoutes(options: Options): Hono<Ap
       return sharedCardId;
     });
     return context.json({ ok: true, sharedCardId: result }, 201);
-  });
-
-  app.get("/professorit/shared-cards/from-copy/:cardId", async (context) => {
-    const { requestContext } = await loadRequestContextFromRequest(context.req.raw, options.allowedOrigins);
-    const cardId = expectUuidString(context.req.param("cardId"), "cardId");
-    const workspaceId = expectUuidString(context.req.query("workspaceId"), "workspaceId");
-    const result = await transactionWithWorkspaceScope({ userId: requestContext.userId, workspaceId }, async (executor) => executor.query<SharedCardMetadataRow>(
-      [
-        "SELECT shared_cards.shared_card_id, shared_cards.subject_slug, shared_cards.topic_slug,",
-        "shared_cards.difficulty, shared_cards.question_type, shared_cards.lms_lesson_id,",
-        "shared_cards.lms_lesson_title, shared_cards.interview_source, shared_cards.publication_status",
-        "FROM content.professorit_shared_card_copies AS copies",
-        "INNER JOIN content.professorit_shared_cards AS shared_cards ON shared_cards.shared_card_id = copies.shared_card_id",
-        "WHERE copies.workspace_id = $1 AND copies.card_id = $2 LIMIT 1",
-      ].join(" "),
-      [workspaceId, cardId],
-    ));
-    const row = result.rows[0];
-    if (row === undefined) throw new HttpError(404, "Shared card not found");
-    const lmsBaseUrl = (process.env.PROFESSORIT_LMS_BASE_URL ?? "https://academy.professorit.ru").replace(/\/$/, "");
-    return context.json({
-      professorIt: {
-        sharedCardId: row.shared_card_id,
-        subject: row.subject_slug,
-        topic: row.topic_slug,
-        difficulty: row.difficulty,
-        questionType: row.question_type,
-        lmsLessonId: row.lms_lesson_id,
-        lmsLessonTitle: row.lms_lesson_title,
-        lmsLessonUrl: row.lms_lesson_id === null ? null : `${lmsBaseUrl}/professorit/lesson/${encodeURIComponent(row.lms_lesson_id)}`,
-        interviewSource: row.interview_source,
-        publicationStatus: row.publication_status,
-      },
-    });
   });
 
   app.get("/professorit/shared-cards/:sharedCardId/history", async (context) => {

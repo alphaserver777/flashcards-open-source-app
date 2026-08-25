@@ -178,13 +178,28 @@ function hasMatchingTags(tags: ReadonlyArray<string>, requestedTags: ReadonlyArr
   return tags.some((tag) => requestedTagKeys.has(normalizeTagKey(tag)));
 }
 
+/** Filter keys are derived from structured Professor IT metadata. They are not displayed or persisted as card tags. */
+export function getCardFilterKeys(card: Card): ReadonlyArray<string> {
+  const professorIt = card.metadata.professorIt;
+  return normalizeReviewFilterTags([
+    ...card.tags,
+    ...(professorIt === undefined ? [] : [
+      `subject:${professorIt.subject}`,
+      `topic:${professorIt.topic}`,
+      `level:${professorIt.difficulty}`,
+      `type:${professorIt.questionType}`,
+      professorIt.lmsLessonId === null ? "material:missing" : "material:linked",
+    ]),
+  ]);
+}
+
 /** Keep deck matching semantics aligned with apps/ios/Flashcards/Flashcards/Cards/List/CardFilterSupport.swift and apps/android/data/local/src/main/java/com/flashcardsopensourceapp/data/local/model/cards/FilterSupport.kt: tags match on any overlap. */
 export function matchesDeckFilterDefinition(filterDefinition: DeckFilterDefinition, card: Card): boolean {
   if (filterDefinition.tags.length === 0) {
     return true;
   }
 
-  const cardTagKeys = new Set(card.tags.map((tag) => normalizeTagKey(tag)));
+  const cardTagKeys = new Set(getCardFilterKeys(card).map((tag) => normalizeTagKey(tag)));
   return filterDefinition.tags.some((tag) => cardTagKeys.has(normalizeTagKey(tag)));
 }
 
@@ -193,7 +208,7 @@ export function matchesCardFilter(filter: CardFilter, card: Card): boolean {
     return true;
   }
 
-  const cardTagKeys = new Set(card.tags.map((tag) => normalizeTagKey(tag)));
+  const cardTagKeys = new Set(getCardFilterKeys(card).map((tag) => normalizeTagKey(tag)));
   const groups = new Map<string, Array<string>>();
   for (const tag of filter.tags) {
     const normalizedTag = normalizeTagKey(tag);
@@ -221,7 +236,7 @@ export function makeDeckCardStats(cards: ReadonlyArray<Card>, nowTimestamp: numb
 export function makeWorkspaceTagsSummary(cards: ReadonlyArray<Card>): WorkspaceTagsSummary {
   const activeCards = deriveActiveCards(cards);
   const tagStatsByKey = activeCards.reduce((result, card) => {
-    for (const tag of card.tags) {
+    for (const tag of getCardFilterKeys(card)) {
       const tagKey = normalizeTagKey(tag);
       if (tagKey === "") {
         continue;
@@ -264,7 +279,7 @@ function resolveActiveTags(tags: ReadonlyArray<string>, cards: ReadonlyArray<Car
   const activeCards = deriveActiveCards(cards);
   const canonicalTagsByKey = new Map<string, string>();
   for (const card of activeCards) {
-    for (const tag of card.tags) {
+    for (const tag of getCardFilterKeys(card)) {
       const tagKey = normalizeTagKey(tag);
       if (tagKey !== "" && canonicalTagsByKey.has(tagKey) === false) {
         canonicalTagsByKey.set(tagKey, normalizeTag(tag));

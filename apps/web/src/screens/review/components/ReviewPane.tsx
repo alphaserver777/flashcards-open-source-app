@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type ReactElement } from "react";
 import { Link } from "react-router";
-import { loadProfessorItSharedCardMetadata, submitProfessorItCardSuggestion } from "../../../api";
+import { submitProfessorItCardSuggestion } from "../../../api";
 import type { ReviewRating } from "../../../../../backend/src/scheduling";
 import { useI18n } from "../../../i18n";
 import { cardsRoute } from "../../../routes";
@@ -356,29 +356,7 @@ function ReviewActiveCardPane(props: ReviewActiveCardPaneProps): ReactElement {
   const previousCardIdRef = useRef<string | null>(null);
   const wasAnswerVisibleRef = useRef(false);
   const [isSuggestionOpen, setIsSuggestionOpen] = useState(false);
-  const [linkedLesson, setLinkedLesson] = useState<Readonly<{ title: string | null; url: string }> | null>(() => {
-    const url = selectedCard.metadata.professorIt?.lmsLessonUrl;
-    return url == null ? null : { title: selectedCard.metadata.professorIt?.lmsLessonTitle ?? null, url };
-  });
-
-  useEffect(() => {
-    const localMetadata = selectedCard.metadata.professorIt;
-    if (localMetadata?.lmsLessonUrl != null) {
-      setLinkedLesson({ title: localMetadata.lmsLessonTitle, url: localMetadata.lmsLessonUrl });
-      return undefined;
-    }
-    setLinkedLesson(null);
-    if (workspaceId === null || selectedCard.tags.includes("material:linked") === false) return undefined;
-    let isCancelled = false;
-    void loadProfessorItSharedCardMetadata(workspaceId, selectedCard.cardId)
-      .then((metadata) => {
-        if (!isCancelled && metadata.lmsLessonUrl !== null) {
-          setLinkedLesson({ title: metadata.lmsLessonTitle, url: metadata.lmsLessonUrl });
-        }
-      })
-      .catch(() => undefined);
-    return () => { isCancelled = true; };
-  }, [selectedCard.cardId, selectedCard.metadata.professorIt, selectedCard.tags, workspaceId]);
+  const linkedLessonUrl = selectedCard.metadata.professorIt?.lmsLessonUrl ?? null;
 
   useLayoutEffect(() => {
     const didCardChange = previousCardIdRef.current !== selectedCard.cardId;
@@ -401,7 +379,9 @@ function ReviewActiveCardPane(props: ReviewActiveCardPaneProps): ReactElement {
     <>
       <div className="review-pane-head">
         <div className="review-pane-head-meta">
-          <span className="review-pane-tag-label">{formatTagSummary(selectedCard.tags, t)}</span>
+          {selectedCard.metadata.professorIt === undefined ? (
+            <span className="review-pane-tag-label">{formatTagSummary(selectedCard.tags, t)}</span>
+          ) : null}
           <span className={`badge review-repetition-badge${selectedCard.reps === 0 ? " review-repetition-badge-new" : ""}`}>
             <ReviewRepetitionIcon />
             <span aria-hidden="true">{repetitionValue}</span>
@@ -474,13 +454,13 @@ function ReviewActiveCardPane(props: ReviewActiveCardPaneProps): ReactElement {
       </div>
 
       {isAnswerVisible && (
-        linkedLesson !== null
+        linkedLessonUrl !== null
         || (canManageSharedContent === false && workspaceId !== null)
       ) ? (
         <div className="review-meta">
-          {linkedLesson !== null ? (
-            <a className="primary-btn" href={linkedLesson.url} target="_blank" rel="noreferrer">
-              Разобрать тему в курсе{linkedLesson.title === null ? "" : `: ${linkedLesson.title}`}
+          {linkedLessonUrl !== null ? (
+            <a className="primary-btn" href={linkedLessonUrl} target="_blank" rel="noreferrer">
+              Материалы
             </a>
           ) : null}
           {canManageSharedContent === false && workspaceId !== null ? (

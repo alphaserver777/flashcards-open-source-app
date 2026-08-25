@@ -1,5 +1,5 @@
 import type { Card } from "../../../types";
-import { normalizeTag, normalizeTagKey } from "../../../appData/domain";
+import { getCardFilterKeys, normalizeTag, normalizeTagKey } from "../../../appData/domain";
 import { describeIndexedDbError } from "../../core/database";
 
 export type CardTagRecord = Readonly<{
@@ -24,7 +24,7 @@ function putCardTags(cardTagsStore: IDBObjectStore, workspaceId: string, card: C
     return;
   }
 
-  for (const tag of card.tags) {
+  for (const tag of getCardFilterKeys(card)) {
     if (tag === "") {
       continue;
     }

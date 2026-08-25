@@ -54,17 +54,8 @@ type MissingSharedCardRow = Readonly<{
   updated_at: Date | string;
 }>;
 
-const CONTROLLED_TAG_PREFIXES = ["subject:", "topic:", "level:", "type:", "material:"] as const;
-
-function sharedCardTags(row: SharedCardCopyRow): ReadonlyArray<string> {
-  return [
-    ...row.tags.filter((tag) => CONTROLLED_TAG_PREFIXES.some((prefix) => tag.toLowerCase().startsWith(prefix)) === false),
-    `subject:${row.subject_slug}`,
-    `topic:${row.topic_slug}`,
-    `level:${row.difficulty}`,
-    `type:${row.question_type}`,
-    row.lms_lesson_id === null ? "material:missing" : "material:linked",
-  ];
+function sharedCardTags(_row: SharedCardCopyRow): ReadonlyArray<string> {
+  return [];
 }
 
 function sharedCardMetadata(row: SharedCardCopyRow): CardMetadata {
@@ -232,13 +223,7 @@ export async function registerProfessorITSharedCardsInExecutor(
         frontText: sharedCard.front_text,
         backText: sharedCard.back_text,
         cardType: sharedCard.card_type,
-        tags: [
-          `subject:${sharedCard.subject_slug}`,
-          `topic:${sharedCard.topic_slug}`,
-          `level:${sharedCard.difficulty}`,
-          `type:${sharedCard.question_type}`,
-          sharedCard.lms_lesson_id === null ? "material:missing" : "material:linked",
-        ],
+        tags: [],
         metadata: {
           version: 1,
           source: null,
@@ -306,12 +291,12 @@ export async function synchronizeProfessorITSharedCardsInExecutor(
       }
       const desiredTags = sharedCardTags(row);
       const desiredMetadata = sharedCardMetadata(row);
-      const contentChanged = row.front_text !== row.shared_front_text
+      const authorContentChanged = row.front_text !== row.shared_front_text
         || row.back_text !== row.shared_back_text
         || row.card_type !== row.shared_card_type
-        || JSON.stringify(row.tags) !== JSON.stringify(desiredTags)
         || JSON.stringify(row.metadata.professorIt) !== JSON.stringify(desiredMetadata.professorIt);
-      if (contentChanged === false) {
+      const tagsChanged = JSON.stringify(row.tags) !== JSON.stringify(desiredTags);
+      if (authorContentChanged === false && tagsChanged === false) {
         if (new Date(row.shared_updated_at_applied).getTime() < new Date(row.shared_updated_at).getTime()) {
           await executor.query(
             "UPDATE content.professorit_shared_card_copies SET shared_updated_at_applied = $3 WHERE shared_card_id = $1 AND workspace_id = $2",
@@ -320,7 +305,7 @@ export async function synchronizeProfessorITSharedCardsInExecutor(
         }
         continue;
       }
-      if (new Date(row.shared_updated_at_applied).getTime() >= new Date(row.shared_updated_at).getTime()) {
+      if (authorContentChanged && new Date(row.shared_updated_at_applied).getTime() >= new Date(row.shared_updated_at).getTime()) {
         const editedMetadata = row.metadata.professorIt;
         await executor.query("SELECT set_config('professorit.changed_by_user_id', $1, true), set_config('professorit.change_reason', 'author_edit', true)", [userId]);
         const updatedSharedCard = await executor.query<Readonly<{ updated_at: Date | string }>>(

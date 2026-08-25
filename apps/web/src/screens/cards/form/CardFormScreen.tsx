@@ -7,6 +7,7 @@ import {
   useAppErrorDialog,
 } from "../../../appError/AppErrorContext";
 import { useAiCardHandoff } from "../../../chat/handoff/useAiCardHandoff";
+import { resolveProfessorItLmsLesson } from "../../../api";
 import { useI18n } from "../../../i18n";
 import {
   cancelCardFormTextareaSelectionRestore,
@@ -71,7 +72,7 @@ function createNewCardFormState(canManageSharedContent: boolean): CardFormState 
               lmsLessonTitle: null,
               lmsLessonUrl: null,
               interviewSource: null,
-              publicationStatus: "published",
+              publicationStatus: "draft",
       },
     },
   };
@@ -522,6 +523,59 @@ export function CardFormScreen(): ReactElement {
     };
   }
 
+  async function prepareProfessorItFormStateForSave(): Promise<CardFormState> {
+    const currentFormState = formStateRef.current;
+    const metadata = currentFormState.metadata.professorIt;
+    if (metadata === undefined) return currentFormState;
+    if (metadata.subject.trim() === "" || metadata.topic.trim() === "") {
+      throw new Error("Выберите направление и укажите тему карточки.");
+    }
+    const materialUrl = metadata.lmsLessonUrl?.trim() ?? "";
+    if (materialUrl === "") {
+      const nextState = {
+        ...currentFormState,
+        tags: [],
+        metadata: {
+          ...currentFormState.metadata,
+          professorIt: { ...metadata, lmsLessonId: null, lmsLessonTitle: null, lmsLessonUrl: null },
+        },
+      };
+      handleFormStateChange(nextState);
+      return nextState;
+    }
+    let isCurrentStableUrl = false;
+    if (metadata.lmsLessonId !== null) {
+      try {
+        const parsedUrl = new URL(materialUrl);
+        isCurrentStableUrl = parsedUrl.hostname === "academy.professorit.ru"
+          && decodeURIComponent(parsedUrl.pathname) === `/professorit/lesson/${metadata.lmsLessonId}`;
+      } catch {
+        isCurrentStableUrl = false;
+      }
+    }
+    if (isCurrentStableUrl) {
+      const nextState = { ...currentFormState, tags: [] };
+      handleFormStateChange(nextState);
+      return nextState;
+    }
+    const lesson = await resolveProfessorItLmsLesson(materialUrl);
+    const nextState = {
+      ...currentFormState,
+      tags: [],
+      metadata: {
+        ...currentFormState.metadata,
+        professorIt: {
+          ...metadata,
+          lmsLessonId: lesson.lesson_id,
+          lmsLessonTitle: lesson.title,
+          lmsLessonUrl: `https://academy.professorit.ru${lesson.stable_url}`,
+        },
+      },
+    };
+    handleFormStateChange(nextState);
+    return nextState;
+  }
+
   function handleFormStateChange(nextFormState: CardFormState): void {
     formStateRef.current = nextFormState;
     setFormState(nextFormState);
@@ -551,6 +605,7 @@ export function CardFormScreen(): ReactElement {
     setErrorMessage("");
 
     try {
+      await prepareProfessorItFormStateForSave();
       const savedCard = await updateCardItem(cardId, buildUpdatePayload());
       indexedDbOpenRecoveryState.throwIfFailed();
       successfulMutationGenerationRef.current += 1;
@@ -572,6 +627,11 @@ export function CardFormScreen(): ReactElement {
 
       if (isWorkspaceUnavailableError(error)) {
         setActionErrorMessage(workspaceUnavailableErrorMessage);
+        return null;
+      }
+
+      if (error instanceof Error && error.message.trim() !== "") {
+        setActionErrorMessage(error.message);
         return null;
       }
 
@@ -608,6 +668,7 @@ export function CardFormScreen(): ReactElement {
     setErrorMessage("");
 
     try {
+      await prepareProfessorItFormStateForSave();
       if (isCreateMode) {
         const currentFormState = formStateRef.current;
         const payload: CreateCardInput = {
@@ -639,6 +700,10 @@ export function CardFormScreen(): ReactElement {
         return;
       }
 
+      if (error instanceof Error && error.message.trim() !== "") {
+        setActionErrorMessage(error.message);
+        return;
+      }
       captureAppOperationError(error, {
         feature: "cards",
         operation: "card_save",
@@ -690,6 +755,19 @@ export function CardFormScreen(): ReactElement {
     if (didHandoff === false || indexedDbOpenRecoveryState.hasFailed()) {
       return;
     }
+  }
+
+  async function handlePublicationStatus(nextStatus: "draft" | "published" | "archived"): Promise<void> {
+    const professorIt = formStateRef.current.metadata.professorIt;
+    if (professorIt === undefined) return;
+    handleFormStateChange({
+      ...formStateRef.current,
+      metadata: {
+        ...formStateRef.current.metadata,
+        professorIt: { ...professorIt, publicationStatus: nextStatus },
+      },
+    });
+    await handleSubmit();
   }
 
   function setManagedMediaFieldState(
@@ -928,6 +1006,18 @@ export function CardFormScreen(): ReactElement {
           </div>
           <div className="screen-actions">
             <Link className="ghost-btn" to={cardsRoute}>{t("cardForm.actions.back")}</Link>
+            {!isCreateMode && formState.metadata.professorIt !== undefined ? (
+              <button
+                type="button"
+                className="ghost-btn"
+                disabled={isSaving || isDeleting || isAuthoringMedia || isSubmissionBlocked}
+                onClick={() => void handlePublicationStatus(
+                  formState.metadata.professorIt?.publicationStatus === "published" ? "archived" : "published",
+                )}
+              >
+                {formState.metadata.professorIt.publicationStatus === "published" ? "Архивировать" : "Опубликовать"}
+              </button>
+            ) : null}
             {!isCreateMode && currentCard !== null ? (
               <button
                 type="button"

@@ -43,10 +43,10 @@ export {
 export {
   loadProfessorItCardSuggestions,
   loadProfessorItNearDuplicatePairs,
-  loadProfessorItSharedCardMetadata,
   loadProfessorItSharedCardHistory,
   reviewProfessorItCardSuggestion,
   searchProfessorItLmsLessons,
+  resolveProfessorItLmsLesson,
   submitProfessorItCardSuggestion,
   updateProfessorItCardSuggestion,
 } from "./api/endpoints/professoritCardSuggestions";
