@@ -1,0 +1,1 @@
+20 3 * * * root /opt/flashcards/scripts/deploy/export-professorit-cards.sh >>/var/log/professorit-card-export.log 2>&1

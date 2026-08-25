@@ -1,6 +1,6 @@
 # Professor IT self-hosted mode
 
-Status as of 2026-08-23: deployed for browser use at
+Status as of 2026-08-25: deployed for browser use at
 `https://professorit.ru/cards/` from branch `professorit/identity`.
 
 ## Purpose
@@ -22,6 +22,11 @@ The cards PostgreSQL database owns:
 - each learner's workspace and repetition state;
 - learner suggestions and their review status;
 - applied shared-content revisions.
+
+The canonical card now also stores its subject, primary topic, interview
+difficulty, question type, publication state and optional stable LMS lesson
+identifier. See `docs/professorit-shared-card-knowledge-base.md` for the data
+contract and author workflow.
 
 ## Roles and content workflow
 
@@ -110,8 +115,15 @@ disables the mobile promotion dialog.
 Professor IT behavior is represented by normal repository migrations. Before
 deployment, apply every migration newer than the currently deployed version.
 Migrations `0114` through `0117` introduce centralized content, learner
-suggestions, shared revisions and revision tracking. Do not edit these schemas
-manually in production.
+suggestions, shared revisions and revision tracking. Migrations `0118` through
+`0120` add the canonical knowledge-base taxonomy, classify the 118 existing
+Linux and Git cards and import the Linux interview-question backlog as drafts.
+Do not edit these schemas manually in production.
+
+Run `scripts/deploy/export-professorit-cards.sh` daily from CT 205. It exports
+the canonical database to JSON and Markdown, writes checksums and retains the
+last 30 days. The export is a backup only; PostgreSQL remains the source of
+truth.
 
 ## Verification
 
@@ -125,6 +137,10 @@ After a release, test all of the following in separate browser sessions:
 6. Suggestion submission, author editing, acceptance and rejection.
 7. Reviewed suggestions removed from the pending list.
 8. Logout and session refresh below the `/cards` path.
+9. Combined subject, topic, level and question-type filters.
+10. LMS link hidden before answer reveal and visible afterwards.
+11. Draft and archived cards hidden from learners.
+12. Canonical edits propagated without resetting learner scheduling.
 
 Basic availability checks:
 
@@ -148,7 +164,7 @@ The present Proxmox deployment is still a lab-style runtime:
 - the backend runs through `npm run dev`;
 - PostgreSQL is published on all CT network interfaces;
 - CT 205 does not start automatically with the Proxmox host;
-- backup and restore automation is not yet documented;
+- full PostgreSQL disaster-recovery exercises remain manual;
 - external availability monitoring is not yet connected.
 
 Resolve these items before declaring the cards service production-hardened.
