@@ -51,6 +51,18 @@ type SharedCardQuestionRow = Readonly<{
   publication_status: "draft" | "published" | "archived";
 }>;
 
+type SharedCardMetadataRow = Readonly<{
+  shared_card_id: string;
+  subject_slug: string;
+  topic_slug: string;
+  difficulty: "junior" | "middle" | "senior";
+  question_type: "theory" | "command" | "case";
+  lms_lesson_id: string | null;
+  lms_lesson_title: string | null;
+  interview_source: string | null;
+  publication_status: "draft" | "published" | "archived";
+}>;
+
 const duplicateQuestionStopWords = new Set([
   "как", "какая", "какие", "какой", "что", "это", "чем", "для", "при", "или", "его", "она", "они", "между", "можно",
 ]);
@@ -298,6 +310,41 @@ export function createProfessorItCardSuggestionRoutes(options: Options): Hono<Ap
       return sharedCardId;
     });
     return context.json({ ok: true, sharedCardId: result }, 201);
+  });
+
+  app.get("/professorit/shared-cards/from-copy/:cardId", async (context) => {
+    const { requestContext } = await loadRequestContextFromRequest(context.req.raw, options.allowedOrigins);
+    requireAuthor(requestContext.userId);
+    const cardId = expectUuidString(context.req.param("cardId"), "cardId");
+    const workspaceId = expectUuidString(context.req.query("workspaceId"), "workspaceId");
+    const result = await transactionWithWorkspaceScope({ userId: requestContext.userId, workspaceId }, async (executor) => executor.query<SharedCardMetadataRow>(
+      [
+        "SELECT shared_cards.shared_card_id, shared_cards.subject_slug, shared_cards.topic_slug,",
+        "shared_cards.difficulty, shared_cards.question_type, shared_cards.lms_lesson_id,",
+        "shared_cards.lms_lesson_title, shared_cards.interview_source, shared_cards.publication_status",
+        "FROM content.professorit_shared_card_copies AS copies",
+        "INNER JOIN content.professorit_shared_cards AS shared_cards ON shared_cards.shared_card_id = copies.shared_card_id",
+        "WHERE copies.workspace_id = $1 AND copies.card_id = $2 LIMIT 1",
+      ].join(" "),
+      [workspaceId, cardId],
+    ));
+    const row = result.rows[0];
+    if (row === undefined) throw new HttpError(404, "Shared card not found");
+    const lmsBaseUrl = (process.env.PROFESSORIT_LMS_BASE_URL ?? "https://academy.professorit.ru").replace(/\/$/, "");
+    return context.json({
+      professorIt: {
+        sharedCardId: row.shared_card_id,
+        subject: row.subject_slug,
+        topic: row.topic_slug,
+        difficulty: row.difficulty,
+        questionType: row.question_type,
+        lmsLessonId: row.lms_lesson_id,
+        lmsLessonTitle: row.lms_lesson_title,
+        lmsLessonUrl: row.lms_lesson_id === null ? null : `${lmsBaseUrl}/professorit/lesson/${encodeURIComponent(row.lms_lesson_id)}`,
+        interviewSource: row.interview_source,
+        publicationStatus: row.publication_status,
+      },
+    });
   });
 
   app.get("/professorit/shared-cards/:sharedCardId/history", async (context) => {

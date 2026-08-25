@@ -1,4 +1,5 @@
 import { allowAuthRecovery, requestJson } from "../transport/transport";
+import type { ProfessorItCardMetadata } from "../../types";
 
 export type ProfessorItCardSuggestion = Readonly<{
   suggestionId: string;
@@ -68,6 +69,22 @@ export async function loadProfessorItSharedCardHistory(sharedCardId: string): Pr
       createdAt: String(row.created_at ?? ""),
     };
   });
+}
+
+export async function loadProfessorItSharedCardMetadata(
+  workspaceId: string,
+  cardId: string,
+): Promise<ProfessorItCardMetadata> {
+  const response = await requestJson(
+    `/professorit/shared-cards/from-copy/${encodeURIComponent(cardId)}?workspaceId=${encodeURIComponent(workspaceId)}`,
+    { method: "GET" },
+    allowAuthRecovery,
+  );
+  const metadata = (response.value as { professorIt?: unknown } | null)?.professorIt;
+  if (typeof metadata !== "object" || metadata === null) {
+    throw new Error("Не удалось загрузить метаданные общей карточки.");
+  }
+  return metadata as ProfessorItCardMetadata;
 }
 
 export async function submitProfessorItCardSuggestion(input: Readonly<{

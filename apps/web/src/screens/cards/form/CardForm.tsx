@@ -1064,6 +1064,33 @@ export const CardFormFields = forwardRef<CardFormFieldsHandle, Props>(function C
               </div>
             )}
             <label className="form-label">
+              <span>Ссылка на материал курса</span>
+              <input
+                className="settings-input"
+                type="url"
+                placeholder="https://academy.professorit.ru/professorit/lesson/..."
+                value={formState.metadata.professorIt.lmsLessonUrl ?? ""}
+                onChange={(event) => {
+                  const value = event.target.value.trim();
+                  let lessonId = formState.metadata.professorIt?.lmsLessonId ?? null;
+                  try {
+                    const url = new URL(value);
+                    const stablePrefix = "/professorit/lesson/";
+                    if (url.pathname.startsWith(stablePrefix)) {
+                      lessonId = decodeURIComponent(url.pathname.slice(stablePrefix.length));
+                    }
+                  } catch {
+                    // Пользователь может вводить адрес по частям.
+                  }
+                  updateProfessorItMetadata({
+                    lmsLessonUrl: value === "" ? null : value,
+                    lmsLessonId: value === "" ? null : lessonId,
+                  });
+                }}
+              />
+              <small className="subtitle">Можно вставить устойчивую ссылку на урок вручную или найти урок выше.</small>
+            </label>
+            <label className="form-label">
               <span>Идентификатор урока LMS</span>
               <input className="settings-input" value={formState.metadata.professorIt.lmsLessonId ?? ""} onChange={(event) => updateProfessorItMetadata({ lmsLessonId: event.target.value.trim() === "" ? null : event.target.value })} />
             </label>

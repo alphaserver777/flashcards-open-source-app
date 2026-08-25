@@ -4,6 +4,7 @@ import {
   useAppErrorDialog,
 } from "../../../../appError/AppErrorContext";
 import type { TranslationKey } from "../../../../i18n";
+import { loadProfessorItSharedCardMetadata } from "../../../../api";
 import { UnsupportedImagePreparationError } from "../../../../media/imagePreparation";
 import { captureAppOperationError } from "../../../../observability/appOperationObservation";
 import { getExpectedCardMutationInlineErrorMessage } from "../../../cards/cardMutationErrors";
@@ -32,7 +33,7 @@ import {
   type GeneratedMediaLifecycleTextReplacements,
 } from "../../../cards/form/cardFormMediaLifecycle";
 import { markMediaUploadTransferDueForRetry } from "../../../../localDb/mediaTransfers";
-import type { Card } from "../../../../types";
+import type { Card, CardMetadata } from "../../../../types";
 
 export type ReviewEditorPresentationToken = Readonly<{
   presentationGeneration: number;
@@ -69,6 +70,7 @@ type UseReviewCardEditorParams = Readonly<{
   updateCardItem: (cardId: string, input: Readonly<{
     frontText: string;
     backText: string;
+    metadata: CardMetadata;
     tags: ReadonlyArray<string>;
   }>) => Promise<Card>;
   userId: string | null;
@@ -382,6 +384,31 @@ export function useReviewCardEditor(params: UseReviewCardEditorParams): UseRevie
     setManagedMediaState(createCardFormManagedMediaState());
     setIsEditorSaving(false);
     setIsEditorPresented(true);
+
+    if (workspaceId !== null && card.metadata.professorIt === undefined) {
+      void loadProfessorItSharedCardMetadata(workspaceId, card.cardId)
+        .then((professorIt) => {
+          const identity = editorIdentityRef.current;
+          if (
+            identity === null
+            || identity.cardId !== card.cardId
+            || identity.presentationGeneration !== presentationGeneration
+            || isEditorPresentedRef.current === false
+          ) return;
+          const currentFormState = editorFormStateRef.current;
+          const nextFormState: CardFormState = {
+            ...currentFormState,
+            metadata: { ...currentFormState.metadata, professorIt },
+          };
+          editorFormRevisionRef.current += 1;
+          editorFormStateRef.current = nextFormState;
+          setEditorFormState(nextFormState);
+        })
+        .catch((error: unknown) => {
+          if (editorIdentityRef.current?.presentationGeneration !== presentationGeneration) return;
+          setEditorErrorMessage(error instanceof Error ? error.message : "Не удалось загрузить связь с материалом курса.");
+        });
+    }
   }
 
   function handleEditorFormStateChange(nextFormState: CardFormState): void {
@@ -420,6 +447,7 @@ export function useReviewCardEditor(params: UseReviewCardEditorParams): UseRevie
       const savedCard = await updateCardItem(editingCardId, {
         frontText: submittedFormState.frontText,
         backText: submittedFormState.backText,
+        metadata: submittedFormState.metadata,
         tags: submittedFormState.tags,
       });
       indexedDbOpenRecoveryState.throwIfFailed();
@@ -488,6 +516,7 @@ export function useReviewCardEditor(params: UseReviewCardEditorParams): UseRevie
       const savedCard = await updateCardItem(editingCardId, {
         frontText: submittedFormState.frontText,
         backText: submittedFormState.backText,
+        metadata: submittedFormState.metadata,
         tags: submittedFormState.tags,
       });
       indexedDbOpenRecoveryState.throwIfFailed();

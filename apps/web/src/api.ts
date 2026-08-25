@@ -43,6 +43,7 @@ export {
 export {
   loadProfessorItCardSuggestions,
   loadProfessorItNearDuplicatePairs,
+  loadProfessorItSharedCardMetadata,
   loadProfessorItSharedCardHistory,
   reviewProfessorItCardSuggestion,
   searchProfessorItLmsLessons,
