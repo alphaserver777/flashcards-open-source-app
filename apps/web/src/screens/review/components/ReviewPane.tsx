@@ -450,16 +450,21 @@ function ReviewActiveCardPane(props: ReviewActiveCardPaneProps): ReactElement {
         ) : null}
       </div>
 
-      {isAnswerVisible && canManageSharedContent === false && workspaceId !== null ? (
+      {isAnswerVisible && (
+        selectedCard.metadata.professorIt?.lmsLessonUrl != null
+        || (canManageSharedContent === false && workspaceId !== null)
+      ) ? (
         <div className="review-meta">
-          {selectedCard.metadata.professorIt?.lmsLessonUrl !== null && selectedCard.metadata.professorIt?.lmsLessonUrl !== undefined ? (
+          {selectedCard.metadata.professorIt?.lmsLessonUrl != null ? (
             <a className="primary-btn" href={selectedCard.metadata.professorIt.lmsLessonUrl} target="_blank" rel="noreferrer">
-              Разобрать тему в курсе
+              Разобрать тему в курсе{selectedCard.metadata.professorIt.lmsLessonTitle == null ? "" : `: ${selectedCard.metadata.professorIt.lmsLessonTitle}`}
             </a>
           ) : null}
-          <button className="ghost-btn" type="button" onClick={() => setIsSuggestionOpen(true)}>
-            Предложить улучшение или сообщить об ошибке
-          </button>
+          {canManageSharedContent === false && workspaceId !== null ? (
+            <button className="ghost-btn" type="button" onClick={() => setIsSuggestionOpen(true)}>
+              Предложить улучшение или сообщить об ошибке
+            </button>
+          ) : null}
         </div>
       ) : null}
 
