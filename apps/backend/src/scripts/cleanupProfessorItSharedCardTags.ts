@@ -12,6 +12,17 @@ type TaggedSharedCardRow = Readonly<{
 }>;
 
 async function loadTargetWorkspaces(): Promise<ReadonlyArray<WorkspaceMemberRow>> {
+  const configuredWorkspaceId = process.env.PROFESSORIT_CLEANUP_WORKSPACE_ID?.trim();
+  const configuredUserId = process.env.PROFESSORIT_CLEANUP_USER_ID?.trim();
+  if (configuredWorkspaceId !== undefined || configuredUserId !== undefined) {
+    if (configuredWorkspaceId === undefined || configuredUserId === undefined) {
+      throw new Error(
+        "PROFESSORIT_CLEANUP_WORKSPACE_ID and PROFESSORIT_CLEANUP_USER_ID must be set together.",
+      );
+    }
+    return [{ workspace_id: configuredWorkspaceId, user_id: configuredUserId }];
+  }
+
   return unsafeTransaction(async (executor) => {
     const result = await executor.query<WorkspaceMemberRow>(
       [
