@@ -23,13 +23,15 @@ type SourceCard = Readonly<{
 
 const sourceWorkspaceId = "35274129-ef97-d366-954c-955b4bb0fbf0";
 const sourceUserId = "local";
-const targetUserId = process.env.PROFESSORIT_TARGET_USER_ID;
-const targetWorkspaceId = process.env.PROFESSORIT_TARGET_WORKSPACE_ID;
-const targetReplicaId = process.env.PROFESSORIT_TARGET_REPLICA_ID;
-
-if (!targetUserId || !targetWorkspaceId || !targetReplicaId) {
-  throw new Error("Set PROFESSORIT_TARGET_USER_ID, PROFESSORIT_TARGET_WORKSPACE_ID and PROFESSORIT_TARGET_REPLICA_ID.");
+function requireEnvironmentVariable(name: string): string {
+  const value = process.env[name]?.trim();
+  if (!value) throw new Error(`Set ${name}.`);
+  return value;
 }
+
+const targetUserId = requireEnvironmentVariable("PROFESSORIT_TARGET_USER_ID");
+const targetWorkspaceId = requireEnvironmentVariable("PROFESSORIT_TARGET_WORKSPACE_ID");
+const targetReplicaId = requireEnvironmentVariable("PROFESSORIT_TARGET_REPLICA_ID");
 
 const packageSlug = "professor-it-linux-foundation";
 const adminEmail = "admin@professorit.ru";
@@ -107,13 +109,13 @@ const packageVersionId = await unsafeTransaction(async (executor) => {
 
 const now = new Date().toISOString();
 const installId = `professorit-linux-${targetWorkspaceId}`;
-const existingInstall = await transactionWithWorkspaceScope({ userId: targetUserId, workspaceId: targetWorkspaceId }, async (executor) => (
-  executor.query<Readonly<{ count: string }>>(
+const existingCount = await transactionWithWorkspaceScope({ userId: targetUserId, workspaceId: targetWorkspaceId }, async (executor) => {
+  const result = await executor.query<{ count: string }>(
     "SELECT count(*) FROM content.cards WHERE workspace_id = $1 AND deleted_at IS NULL AND metadata->'source'->>'importId' = $2",
     [targetWorkspaceId, installId],
-  )
-));
-const existingCount = Number(existingInstall.rows[0]?.count ?? "0");
+  );
+  return Number(result.rows[0]?.count ?? "0");
+});
 const installedCards = existingCount === 0
   ? (await transactionWithWorkspaceScope({ userId: targetUserId, workspaceId: targetWorkspaceId }, async (executor) => (
     installCatalogPackageVersionInExecutor(executor, targetWorkspaceId, packageVersionId, {
@@ -129,7 +131,7 @@ const installedCards = existingCount === 0
   : existingCount;
 
 await transactionWithWorkspaceScope({ userId: targetUserId, workspaceId: targetWorkspaceId }, async (executor) => {
-  const demo = await executor.query<Readonly<{ card_id: string }>>(
+  const demo = await executor.query<{ card_id: string }>(
     [
       "SELECT card_id FROM content.cards",
       "WHERE workspace_id = $1 AND tags @> ARRAY['demo']::text[] AND deleted_at IS NULL",
