@@ -1,6 +1,7 @@
 import { transactionWithWorkspaceScope } from "../database";
 import { unsafeTransaction } from "../database/core";
 import { updateCardInExecutor } from "../cards";
+import { buildSystemWorkspaceReplicaId } from "../sync/identity/replica";
 
 type WorkspaceMemberRow = Readonly<{
   workspace_id: string;
@@ -54,6 +55,11 @@ async function cleanupWorkspace(row: WorkspaceMemberRow): Promise<number> {
       );
 
       const updatedAt = new Date().toISOString();
+      const replicaId = buildSystemWorkspaceReplicaId(
+        row.workspace_id,
+        "workspace_seed",
+        "professorit-shared-tag-cleanup",
+      );
       for (const card of taggedCards.rows) {
         await updateCardInExecutor(
           executor,
@@ -62,7 +68,7 @@ async function cleanupWorkspace(row: WorkspaceMemberRow): Promise<number> {
           { tags: [] },
           {
             clientUpdatedAt: updatedAt,
-            lastModifiedByReplicaId: "professorit-shared-tag-cleanup",
+            lastModifiedByReplicaId: replicaId,
             lastOperationId: `professorit-shared-tag-cleanup-${card.card_id}`,
           },
         );
