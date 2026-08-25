@@ -194,7 +194,13 @@ export function matchesCardFilter(filter: CardFilter, card: Card): boolean {
   }
 
   const cardTagKeys = new Set(card.tags.map((tag) => normalizeTagKey(tag)));
-  return filter.tags.some((tag) => cardTagKeys.has(normalizeTagKey(tag)));
+  const groups = new Map<string, Array<string>>();
+  for (const tag of filter.tags) {
+    const normalizedTag = normalizeTagKey(tag);
+    const prefix = ["subject:", "topic:", "level:", "type:", "material:"].find((candidate) => normalizedTag.startsWith(candidate)) ?? "legacy";
+    groups.set(prefix, [...(groups.get(prefix) ?? []), normalizedTag]);
+  }
+  return [...groups.values()].every((tags) => tags.some((tag) => cardTagKeys.has(tag)));
 }
 
 /** Returns only active cards that belong to the provided persisted deck. */

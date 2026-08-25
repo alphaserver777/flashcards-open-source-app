@@ -15,6 +15,27 @@ const REVIEW_FILTER_DECK_PREFIX = "deck:";
 const REVIEW_FILTER_TAG_PREFIX = "tag:";
 const REVIEW_FILTER_LISTBOX_ID = "review-filter-listbox";
 
+function formatProfessorItTag(tag: string): string {
+  const labels: Readonly<Record<string, string>> = {
+    "subject:linux": "Направление · Linux",
+    "subject:git": "Направление · Git",
+    "subject:network": "Направление · Сети",
+    "subject:terraform": "Направление · Terraform",
+    "level:junior": "Уровень · Начальный",
+    "level:middle": "Уровень · Средний",
+    "level:senior": "Уровень · Старший",
+    "type:theory": "Тип · Теория",
+    "type:command": "Тип · Команда",
+    "type:case": "Тип · Практическая ситуация",
+    "material:missing": "Материал · Нет связанного урока",
+    "material:linked": "Материал · Урок привязан",
+  };
+  const normalizedTag = tag.toLowerCase();
+  if (labels[normalizedTag] !== undefined) return labels[normalizedTag];
+  if (normalizedTag.startsWith("topic:")) return `Тема · ${tag.slice("topic:".length)}`;
+  return tag;
+}
+
 export type ReviewFilterMenuItem = Readonly<{
   kind: "action";
   key: "edit-decks";
@@ -121,26 +142,27 @@ function buildReviewTagFilterMenuItems(
   const availableTags = reviewTagSummaries.map((tagSummary) => tagSummary.tag);
   const materializedTags = resolveMaterializedTags(selectedReviewFilter, deckSummaries, availableTags);
   const selectedTagKeys = new Set(materializedTags.map((tag) => normalizeTagKey(tag)));
-  const availableTagKeys = new Set(availableTags.map((tag) => normalizeTagKey(tag)));
-
   return reviewTagSummaries.map((tagSummary) => {
     const tagKey = normalizeTagKey(tagSummary.tag);
+    const exclusivePrefix = tagKey.startsWith("subject:")
+      ? "subject:"
+      : tagKey.startsWith("level:")
+        ? "level:"
+        : null;
     const nextSelectedTags = selectedTagKeys.has(tagKey)
       ? materializedTags.filter((tag) => normalizeTagKey(tag) !== tagKey)
-      : [...materializedTags, tagSummary.tag];
+      : [
+        ...materializedTags.filter((tag) => exclusivePrefix === null || normalizeTagKey(tag).startsWith(exclusivePrefix) === false),
+        tagSummary.tag,
+      ];
     const normalizedNextSelectedTags = normalizeReviewFilterTags(nextSelectedTags);
-    const hasMissingSelectedTag = normalizedNextSelectedTags.some(
-      (tag) => availableTagKeys.has(normalizeTagKey(tag)) === false,
-    );
-    const isEveryAvailableTagSelected = normalizedNextSelectedTags.length === availableTagKeys.size
-      && normalizedNextSelectedTags.every((tag) => availableTagKeys.has(normalizeTagKey(tag)));
-    const reviewFilter = isEveryAvailableTagSelected && hasMissingSelectedTag === false
+    const reviewFilter = normalizedNextSelectedTags.length === 0
       ? ALL_CARDS_REVIEW_FILTER
       : makeTagsReviewFilter(normalizedNextSelectedTags);
 
     return {
       key: `${REVIEW_FILTER_TAG_PREFIX}${tagKey}`,
-      label: `${tagSummary.tag} (${tagSummary.cardsCount})`,
+      label: `${formatProfessorItTag(tagSummary.tag)} (${tagSummary.cardsCount})`,
       reviewFilter,
       subtitle: null,
       isSelected: selectedTagKeys.has(tagKey),
@@ -154,7 +176,7 @@ function resolveMaterializedTags(
   availableTags: ReadonlyArray<string>,
 ): ReadonlyArray<string> {
   if (selectedReviewFilter.kind === "allCards") {
-    return normalizeReviewFilterTags(availableTags);
+    return [];
   }
 
   if (selectedReviewFilter.kind === "tags") {

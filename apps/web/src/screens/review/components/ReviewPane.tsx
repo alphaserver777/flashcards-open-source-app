@@ -452,6 +452,11 @@ function ReviewActiveCardPane(props: ReviewActiveCardPaneProps): ReactElement {
 
       {isAnswerVisible && canManageSharedContent === false && workspaceId !== null ? (
         <div className="review-meta">
+          {selectedCard.metadata.professorIt?.lmsLessonUrl !== null && selectedCard.metadata.professorIt?.lmsLessonUrl !== undefined ? (
+            <a className="primary-btn" href={selectedCard.metadata.professorIt.lmsLessonUrl} target="_blank" rel="noreferrer">
+              Разобрать тему в курсе
+            </a>
+          ) : null}
           <button className="ghost-btn" type="button" onClick={() => setIsSuggestionOpen(true)}>
             Предложить улучшение или сообщить об ошибке
           </button>

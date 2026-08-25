@@ -13,6 +13,63 @@ export type ProfessorItCardSuggestion = Readonly<{
   submitterEmail: string | null;
 }>;
 
+export type ProfessorItLmsLesson = Readonly<{
+  lesson_id: string;
+  title: string;
+  course: string;
+  chapter: string;
+  stable_url: string;
+}>;
+
+export type ProfessorItSharedCardHistoryItem = Readonly<{
+  historyId: string;
+  changedByUserId: string | null;
+  changeReason: string | null;
+  previousValue: Readonly<Record<string, unknown>>;
+  currentValue: Readonly<Record<string, unknown>>;
+  createdAt: string;
+}>;
+
+export type ProfessorItNearDuplicatePair = Readonly<{
+  leftSharedCardId: string;
+  leftQuestion: string;
+  leftStatus: "draft" | "published" | "archived";
+  rightSharedCardId: string;
+  rightQuestion: string;
+  rightStatus: "draft" | "published" | "archived";
+  subject: string;
+  similarity: number;
+}>;
+
+export async function searchProfessorItLmsLessons(query: string): Promise<ReadonlyArray<ProfessorItLmsLesson>> {
+  const response = await requestJson(`/professorit/lms-lessons?query=${encodeURIComponent(query)}`, { method: "GET" }, allowAuthRecovery);
+  const lessons = (response.value as { lessons?: unknown } | null)?.lessons;
+  return Array.isArray(lessons) ? lessons as ReadonlyArray<ProfessorItLmsLesson> : [];
+}
+
+export async function loadProfessorItNearDuplicatePairs(): Promise<ReadonlyArray<ProfessorItNearDuplicatePair>> {
+  const response = await requestJson("/professorit/shared-cards/near-duplicates", { method: "GET" }, allowAuthRecovery);
+  const pairs = (response.value as { pairs?: unknown } | null)?.pairs;
+  return Array.isArray(pairs) ? pairs as ReadonlyArray<ProfessorItNearDuplicatePair> : [];
+}
+
+export async function loadProfessorItSharedCardHistory(sharedCardId: string): Promise<ReadonlyArray<ProfessorItSharedCardHistoryItem>> {
+  const response = await requestJson(`/professorit/shared-cards/${encodeURIComponent(sharedCardId)}/history`, { method: "GET" }, allowAuthRecovery);
+  const rows = (response.value as { history?: unknown } | null)?.history;
+  if (!Array.isArray(rows)) return [];
+  return rows.map((item) => {
+    const row = item as Readonly<Record<string, unknown>>;
+    return {
+      historyId: String(row.history_id ?? ""),
+      changedByUserId: typeof row.changed_by_user_id === "string" ? row.changed_by_user_id : null,
+      changeReason: typeof row.change_reason === "string" ? row.change_reason : null,
+      previousValue: typeof row.previous_value === "object" && row.previous_value !== null ? row.previous_value as Readonly<Record<string, unknown>> : {},
+      currentValue: typeof row.current_value === "object" && row.current_value !== null ? row.current_value as Readonly<Record<string, unknown>> : {},
+      createdAt: String(row.created_at ?? ""),
+    };
+  });
+}
+
 export async function submitProfessorItCardSuggestion(input: Readonly<{
   workspaceId: string;
   cardId: string;

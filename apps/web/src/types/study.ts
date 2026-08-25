@@ -19,6 +19,10 @@ export type FsrsCardState = "new" | "learning" | "review" | "relearning";
 
 export type CardFilter = Readonly<{
   tags: ReadonlyArray<string>;
+  subject?: string | null;
+  topics?: ReadonlyArray<string>;
+  difficulty?: "junior" | "middle" | "senior" | null;
+  questionTypes?: ReadonlyArray<"theory" | "command" | "case">;
 }>;
 
 export type DeckFilterDefinition = Readonly<{
@@ -37,9 +41,23 @@ export type CardSourceMetadata = Readonly<{
   importId: string | null;
 }>;
 
+export type ProfessorItCardMetadata = Readonly<{
+  sharedCardId: string;
+  subject: string;
+  topic: string;
+  difficulty: "junior" | "middle" | "senior";
+  questionType: "theory" | "command" | "case";
+  lmsLessonId: string | null;
+  lmsLessonTitle: string | null;
+  lmsLessonUrl: string | null;
+  interviewSource: string | null;
+  publicationStatus: "draft" | "published" | "archived";
+}>;
+
 export type CardMetadata = Readonly<{
   version: 1;
   source: CardSourceMetadata | null;
+  professorIt?: ProfessorItCardMetadata;
 }>;
 
 // Keep in sync with apps/backend/src/cards/types.ts::Card, apps/ios/Flashcards/Flashcards/Cards/Model/CardDeckTypes.swift::Card, and apps/android/data/local/src/main/java/com/flashcardsopensourceapp/data/local/model/cards/CardModels.kt::CardSummary.
@@ -179,12 +197,14 @@ export type WorkspaceSchedulerSettings = Readonly<{
 export type CreateCardInput = Readonly<{
   frontText: string;
   backText: string;
+  metadata?: CardMetadata;
   tags: ReadonlyArray<string>;
 }>;
 
 export type UpdateCardInput = Readonly<{
   frontText?: string;
   backText?: string;
+  metadata?: CardMetadata;
   tags?: ReadonlyArray<string>;
 }>;
 

@@ -1,9 +1,11 @@
 import { useEffect, useState, type ReactElement } from "react";
 import {
   loadProfessorItCardSuggestions,
+  loadProfessorItNearDuplicatePairs,
   reviewProfessorItCardSuggestion,
   updateProfessorItCardSuggestion,
   type ProfessorItCardSuggestion,
+  type ProfessorItNearDuplicatePair,
 } from "../../api";
 import { SettingsGroup, SettingsShell } from "./SettingsShared";
 
@@ -13,12 +15,17 @@ export function CardSuggestionsScreen(): ReactElement {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [drafts, setDrafts] = useState<Readonly<Record<string, string>>>({});
+  const [duplicatePairs, setDuplicatePairs] = useState<ReadonlyArray<ProfessorItNearDuplicatePair>>([]);
 
   async function load(): Promise<void> {
     setIsLoading(true);
     try {
-      const loadedSuggestions = await loadProfessorItCardSuggestions();
+      const [loadedSuggestions, loadedDuplicatePairs] = await Promise.all([
+        loadProfessorItCardSuggestions(),
+        loadProfessorItNearDuplicatePairs(),
+      ]);
       setSuggestions(loadedSuggestions);
+      setDuplicatePairs(loadedDuplicatePairs);
       setDrafts(Object.fromEntries(loadedSuggestions.map((suggestion) => [suggestion.suggestionId, suggestion.message])));
       setErrorMessage("");
     } catch (error) {
@@ -93,6 +100,19 @@ export function CardSuggestionsScreen(): ReactElement {
             </article>
           ))}
           {suggestions.length === 0 ? <p className="subtitle">Предложений пока нет.</p> : null}
+        </div>
+      </SettingsGroup>
+      <SettingsGroup title={`Похожие вопросы: ${duplicatePairs.length}`}>
+        <p className="subtitle">Проверьте пары вручную: это подсказка для объединения, карточки автоматически не меняются.</p>
+        <div className="settings-nav-list">
+          {duplicatePairs.map((pair) => (
+            <article className="content-card" key={`${pair.leftSharedCardId}:${pair.rightSharedCardId}`}>
+              <p className="subtitle">Совпадение {pair.similarity}% · {pair.subject}</p>
+              <p><strong>{pair.leftQuestion}</strong> <span className="subtitle">({pair.leftStatus})</span></p>
+              <p><strong>{pair.rightQuestion}</strong> <span className="subtitle">({pair.rightStatus})</span></p>
+            </article>
+          ))}
+          {duplicatePairs.length === 0 ? <p className="subtitle">Похожих вопросов не найдено.</p> : null}
         </div>
       </SettingsGroup>
     </SettingsShell>

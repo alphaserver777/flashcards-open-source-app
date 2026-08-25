@@ -14,6 +14,12 @@ import {
   markIndexedDbOpenRecoveryFailureAndCheckActive,
   useAppErrorDialog,
 } from "../../../appError/AppErrorContext";
+import {
+  loadProfessorItSharedCardHistory,
+  searchProfessorItLmsLessons,
+  type ProfessorItLmsLesson,
+  type ProfessorItSharedCardHistoryItem,
+} from "../../../api";
 import { useI18n } from "../../../i18n";
 import {
   CardFormTagsField,
@@ -29,7 +35,7 @@ import {
   parseManagedImageMarkdownReferences,
   type ManagedMediaMarkdownReference,
 } from "../../../media/managedMediaMarkdown";
-import type { Card, TagSuggestion } from "../../../types";
+import type { Card, CardMetadata, ProfessorItCardMetadata, TagSuggestion } from "../../../types";
 import { formatNullableDateTime } from "../../shared/featureFormatting";
 import { ManagedMediaReference } from "../../review/components/card/ReviewManagedMedia";
 import type {
@@ -40,6 +46,7 @@ import type {
 export type CardFormState = Readonly<{
   frontText: string;
   backText: string;
+  metadata: CardMetadata;
   tags: ReadonlyArray<string>;
 }>;
 
@@ -76,6 +83,7 @@ type Props = Readonly<{
   onChange: (nextFormState: CardFormState) => void;
   onPrepareImageMedia: (request: CardFormImageMediaRequest) => Promise<string | null>;
   onRetryMediaUploadTransfer: (request: CardFormMediaUploadRetryRequest) => Promise<void>;
+  canManageSharedContent: boolean;
 }>;
 
 type ManagedMediaInsertion = Readonly<{
@@ -120,6 +128,7 @@ export function toCardFormState(card: Card | null): CardFormState {
     return {
       frontText: "",
       backText: "",
+      metadata: { version: 1, source: null },
       tags: [],
     };
   }
@@ -127,6 +136,7 @@ export function toCardFormState(card: Card | null): CardFormState {
   return {
     frontText: card.frontText,
     backText: card.backText,
+    metadata: card.metadata,
     tags: card.tags,
   };
 }
@@ -135,6 +145,7 @@ export function isCardFormStateDirty(card: Card | null, formState: CardFormState
   const currentState = toCardFormState(card);
   return currentState.frontText !== formState.frontText
     || currentState.backText !== formState.backText
+    || JSON.stringify(currentState.metadata) !== JSON.stringify(formState.metadata)
     || currentState.tags.length !== formState.tags.length
     || currentState.tags.some((tag, index) => tag !== formState.tags[index]);
 }
@@ -632,6 +643,7 @@ export const CardFormFields = forwardRef<CardFormFieldsHandle, Props>(function C
     onChange,
     onPrepareImageMedia,
     onRetryMediaUploadTransfer,
+    canManageSharedContent,
   } = props;
   const { t, formatDateTime } = useI18n();
   const { indexedDbOpenRecoveryState } = useAppErrorDialog();
@@ -649,6 +661,11 @@ export const CardFormFields = forwardRef<CardFormFieldsHandle, Props>(function C
   const [uploadTransfersByMediaAssetId, setUploadTransfersByMediaAssetId] = useState<ReadonlyMap<string, MediaTransferQueueRecord>>(
     new Map<string, MediaTransferQueueRecord>(),
   );
+  const [lessonSearchText, setLessonSearchText] = useState("");
+  const [lessonSearchResults, setLessonSearchResults] = useState<ReadonlyArray<ProfessorItLmsLesson>>([]);
+  const [lessonSearchError, setLessonSearchError] = useState("");
+  const [sharedCardHistory, setSharedCardHistory] = useState<ReadonlyArray<ProfessorItSharedCardHistoryItem>>([]);
+  const [sharedCardHistoryError, setSharedCardHistoryError] = useState("");
   const frontManagedMediaReferences = useMemo(
     (): ReadonlyArray<ManagedMediaMarkdownReference> => parseManagedImageMarkdownReferences(formState.frontText),
     [formState.frontText],
@@ -724,6 +741,58 @@ export const CardFormFields = forwardRef<CardFormFieldsHandle, Props>(function C
   }, []);
 
   useEffect(() => {
+    if (!canManageSharedContent || lessonSearchText.trim().length < 2) {
+      setLessonSearchResults([]);
+      setLessonSearchError("");
+      return undefined;
+    }
+    let isCancelled = false;
+    const timeoutId = window.setTimeout(() => {
+      void searchProfessorItLmsLessons(lessonSearchText.trim())
+        .then((lessons) => {
+          if (!isCancelled) {
+            setLessonSearchResults(lessons);
+            setLessonSearchError("");
+          }
+        })
+        .catch((error: unknown) => {
+          if (!isCancelled) {
+            setLessonSearchResults([]);
+            setLessonSearchError(error instanceof Error ? error.message : "Не удалось найти уроки.");
+          }
+        });
+    }, 300);
+    return () => {
+      isCancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [canManageSharedContent, lessonSearchText]);
+
+  useEffect(() => {
+    const sharedCardId = formState.metadata.professorIt?.sharedCardId;
+    if (!canManageSharedContent || sharedCardId === undefined) {
+      setSharedCardHistory([]);
+      setSharedCardHistoryError("");
+      return;
+    }
+    let isCancelled = false;
+    void loadProfessorItSharedCardHistory(sharedCardId)
+      .then((history) => {
+        if (!isCancelled) {
+          setSharedCardHistory(history);
+          setSharedCardHistoryError("");
+        }
+      })
+      .catch((error: unknown) => {
+        if (!isCancelled) {
+          setSharedCardHistory([]);
+          setSharedCardHistoryError(error instanceof Error ? error.message : "Не удалось загрузить историю правок.");
+        }
+      });
+    return () => { isCancelled = true; };
+  }, [canManageSharedContent, formState.metadata.professorIt?.sharedCardId]);
+
+  useEffect(() => {
     void loadUploadTransferStatuses();
   }, [loadUploadTransferStatuses, localReadVersion]);
 
@@ -752,6 +821,15 @@ export const CardFormFields = forwardRef<CardFormFieldsHandle, Props>(function C
     onChange({
       ...formStateRef.current,
       [key]: value,
+    });
+  }
+
+  function updateProfessorItMetadata(patch: Partial<ProfessorItCardMetadata>): void {
+    const currentMetadata = formStateRef.current.metadata.professorIt;
+    if (currentMetadata === undefined) return;
+    updateField("metadata", {
+      ...formStateRef.current.metadata,
+      professorIt: { ...currentMetadata, ...patch },
     });
   }
 
@@ -928,6 +1006,87 @@ export const CardFormFields = forwardRef<CardFormFieldsHandle, Props>(function C
             disabled={isSaving}
           />
         </div>
+
+        {canManageSharedContent && formState.metadata.professorIt !== undefined ? (
+          <section className="content-card content-card-section">
+            <h2 className="panel-subtitle">Классификация Professor IT</h2>
+            <label className="form-label">
+              <span>Направление</span>
+              <input className="settings-input" value={formState.metadata.professorIt.subject} onChange={(event) => updateProfessorItMetadata({ subject: event.target.value })} />
+            </label>
+            <label className="form-label">
+              <span>Основная тема</span>
+              <input className="settings-input" value={formState.metadata.professorIt.topic} onChange={(event) => updateProfessorItMetadata({ topic: event.target.value })} />
+            </label>
+            <label className="form-label">
+              <span>Уровень</span>
+              <select className="settings-input" value={formState.metadata.professorIt.difficulty} onChange={(event) => updateProfessorItMetadata({ difficulty: event.target.value as ProfessorItCardMetadata["difficulty"] })}>
+                <option value="junior">Начальный</option><option value="middle">Средний</option><option value="senior">Старший</option>
+              </select>
+            </label>
+            <label className="form-label">
+              <span>Тип вопроса</span>
+              <select className="settings-input" value={formState.metadata.professorIt.questionType} onChange={(event) => updateProfessorItMetadata({ questionType: event.target.value as ProfessorItCardMetadata["questionType"] })}>
+                <option value="theory">Теория</option><option value="command">Команда</option><option value="case">Практическая ситуация</option>
+              </select>
+            </label>
+            <label className="form-label">
+              <span>Состояние</span>
+              <select className="settings-input" value={formState.metadata.professorIt.publicationStatus} onChange={(event) => updateProfessorItMetadata({ publicationStatus: event.target.value as ProfessorItCardMetadata["publicationStatus"] })}>
+                <option value="draft">Черновик</option><option value="published">Опубликовано</option><option value="archived">Архив</option>
+              </select>
+            </label>
+            <label className="form-label">
+              <span>Найти урок LMS</span>
+              <input className="settings-input" type="search" placeholder="Введите название урока" value={lessonSearchText} onChange={(event) => setLessonSearchText(event.target.value)} />
+            </label>
+            {lessonSearchError === "" ? null : <p className="error-banner">{lessonSearchError}</p>}
+            {lessonSearchResults.length === 0 ? null : (
+              <div className="settings-nav-list">
+                {lessonSearchResults.map((lesson) => (
+                  <button
+                    key={lesson.lesson_id}
+                    className="settings-row"
+                    type="button"
+                    onClick={() => {
+                      updateProfessorItMetadata({
+                        lmsLessonId: lesson.lesson_id,
+                        lmsLessonTitle: lesson.title,
+                        lmsLessonUrl: `https://academy.professorit.ru${lesson.stable_url}`,
+                      });
+                      setLessonSearchText(lesson.title);
+                      setLessonSearchResults([]);
+                    }}
+                  >
+                    <span>{lesson.title}</span><span className="subtitle">{lesson.course}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <label className="form-label">
+              <span>Идентификатор урока LMS</span>
+              <input className="settings-input" value={formState.metadata.professorIt.lmsLessonId ?? ""} onChange={(event) => updateProfessorItMetadata({ lmsLessonId: event.target.value.trim() === "" ? null : event.target.value })} />
+            </label>
+            <label className="form-label">
+              <span>Название урока</span>
+              <input className="settings-input" value={formState.metadata.professorIt.lmsLessonTitle ?? ""} onChange={(event) => updateProfessorItMetadata({ lmsLessonTitle: event.target.value.trim() === "" ? null : event.target.value })} />
+            </label>
+            <label className="form-label">
+              <span>Источник вопроса</span>
+              <input className="settings-input" placeholder="Например: собеседование, компания и дата" value={formState.metadata.professorIt.interviewSource ?? ""} onChange={(event) => updateProfessorItMetadata({ interviewSource: event.target.value.trim() === "" ? null : event.target.value })} />
+            </label>
+            <h3 className="panel-subtitle">История правок</h3>
+            {sharedCardHistoryError === "" ? null : <p className="error-banner">{sharedCardHistoryError}</p>}
+            {sharedCardHistory.slice(0, 20).map((item) => (
+              <details className="content-card" key={item.historyId}>
+                <summary>{new Date(item.createdAt).toLocaleString("ru-RU")} · {item.changeReason ?? "изменение"}</summary>
+                <p className="subtitle">Автор изменения: {item.changedByUserId ?? "система"}</p>
+                <pre>{JSON.stringify(item.currentValue, null, 2)}</pre>
+              </details>
+            ))}
+            {sharedCardHistory.length === 0 && sharedCardHistoryError === "" ? <p className="subtitle">Изменений пока нет.</p> : null}
+          </section>
+        ) : null}
 
       </section>
 

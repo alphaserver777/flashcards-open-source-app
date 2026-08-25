@@ -42,11 +42,14 @@ export {
 } from "./api/endpoints/feedback";
 export {
   loadProfessorItCardSuggestions,
+  loadProfessorItNearDuplicatePairs,
+  loadProfessorItSharedCardHistory,
   reviewProfessorItCardSuggestion,
+  searchProfessorItLmsLessons,
   submitProfessorItCardSuggestion,
   updateProfessorItCardSuggestion,
 } from "./api/endpoints/professoritCardSuggestions";
-export type { ProfessorItCardSuggestion } from "./api/endpoints/professoritCardSuggestions";
+export type { ProfessorItCardSuggestion, ProfessorItLmsLesson, ProfessorItNearDuplicatePair, ProfessorItSharedCardHistoryItem } from "./api/endpoints/professoritCardSuggestions";
 export {
   acceptFriendInvitation,
   createFriendInvitation,

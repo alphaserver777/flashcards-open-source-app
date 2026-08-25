@@ -19,7 +19,13 @@ export function normalizeCardFilter(filter: CardFilter | null): CardFilter | nul
   }
 
   const normalizedFilter: CardFilter = {
-    tags: normalizeCardFilterTags(filter.tags),
+    tags: normalizeCardFilterTags([
+      ...filter.tags,
+      ...(filter.subject === undefined || filter.subject === null ? [] : [`subject:${filter.subject}`]),
+      ...(filter.topics ?? []).map((topic) => `topic:${topic}`),
+      ...(filter.difficulty === undefined || filter.difficulty === null ? [] : [`level:${filter.difficulty}`]),
+      ...(filter.questionTypes ?? []).map((questionType) => `type:${questionType}`),
+    ]),
   };
 
   if (normalizedFilter.tags.length === 0) {
@@ -34,7 +40,12 @@ export function getCardFilterActiveDimensionCount(filter: CardFilter | null): nu
     return 0;
   }
 
-  return Number(filter.tags.length > 0);
+  const dimensions = new Set(filter.tags.map((tag) => {
+    const normalizedTag = tag.toLowerCase();
+    return ["subject:", "topic:", "level:", "type:", "material:"]
+      .find((prefix) => normalizedTag.startsWith(prefix)) ?? "legacy";
+  }));
+  return dimensions.size;
 }
 
 export function formatCardFilterSummary(filter: CardFilter | null): string {

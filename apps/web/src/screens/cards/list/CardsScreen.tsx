@@ -156,6 +156,20 @@ function createEmptyCardFilter(): CardFilter {
   };
 }
 
+function replaceControlledFilterTags(tags: ReadonlyArray<string>, prefix: string, values: ReadonlyArray<string>): ReadonlyArray<string> {
+  return [...tags.filter((tag) => tag.toLowerCase().startsWith(prefix) === false), ...values.map((value) => `${prefix}${value}`)];
+}
+
+function readControlledFilterValue(tags: ReadonlyArray<string>, prefix: string): string {
+  return tags.find((tag) => tag.toLowerCase().startsWith(prefix))?.slice(prefix.length) ?? "";
+}
+
+function readControlledFilterValues(tags: ReadonlyArray<string>, prefix: string): ReadonlyArray<string> {
+  return tags
+    .filter((tag) => tag.toLowerCase().startsWith(prefix))
+    .map((tag) => tag.slice(prefix.length));
+}
+
 export function getDefaultCardSortDirection(sortKey: CardQuerySortKey): CardQuerySortDirection {
   if (sortKey === "updatedAt") {
     return "desc";
@@ -834,9 +848,14 @@ export function CardsScreen(): ReactElement {
   }
 
   function handleFilterApply(): void {
-    const nextTags = filterTagsInputRef.current === null
-      ? draftFilterValue.tags
+    const currentTopicTags = draftFilterValue.tags.filter((tag) => tag.toLowerCase().startsWith("topic:"));
+    const nextTopicTags = filterTagsInputRef.current === null
+      ? currentTopicTags
       : filterTagsInputRef.current.flushDraft();
+    const nextTags = [
+      ...draftFilterValue.tags.filter((tag) => tag.toLowerCase().startsWith("topic:") === false),
+      ...nextTopicTags,
+    ];
     const nextFilter = normalizeCardFilter({
       tags: nextTags,
     });
@@ -918,18 +937,58 @@ export function CardsScreen(): ReactElement {
               ariaModal={null}
             >
               <div className="cards-filter-section">
-                <span className="deck-form-label">{t("cardsScreen.filters.tags")}</span>
+                <label className="form-label">
+                  <span>Направление</span>
+                  <select className="settings-input" value={readControlledFilterValue(draftFilterValue.tags, "subject:")} onChange={(event) => setDraftCardFilter({ tags: replaceControlledFilterTags(draftFilterValue.tags, "subject:", event.target.value === "" ? [] : [event.target.value]) })}>
+                    <option value="">Все направления</option><option value="linux">Linux</option><option value="git">Git</option><option value="network">Сети</option><option value="terraform">Terraform</option>
+                  </select>
+                </label>
+                <label className="form-label">
+                  <span>Уровень</span>
+                  <select className="settings-input" value={readControlledFilterValue(draftFilterValue.tags, "level:")} onChange={(event) => setDraftCardFilter({ tags: replaceControlledFilterTags(draftFilterValue.tags, "level:", event.target.value === "" ? [] : [event.target.value]) })}>
+                    <option value="">Все уровни</option><option value="junior">Начальный</option><option value="middle">Средний</option><option value="senior">Старший</option>
+                  </select>
+                </label>
+                <span className="deck-form-label">Темы</span>
                 <CardTagsInput
                   ref={filterTagsInputRef}
-                  value={draftFilterValue.tags}
-                  suggestions={tagSuggestions}
-                  placeholder={t("cardTags.inputPlaceholder")}
+                  value={draftFilterValue.tags.filter((tag) => tag.toLowerCase().startsWith("topic:"))}
+                  suggestions={tagSuggestions.filter((suggestion) => suggestion.tag.toLowerCase().startsWith("topic:"))}
+                  placeholder="Выберите одну или несколько тем"
                   inputName="cards-filter-tags"
                   onChange={(nextTags) => setDraftCardFilter({
-                    tags: nextTags,
+                    tags: [
+                      ...draftFilterValue.tags.filter((tag) => tag.toLowerCase().startsWith("topic:") === false),
+                      ...nextTags,
+                    ],
                   })}
                   onEscape={handleFilterCancel}
                 />
+                <fieldset className="form-label">
+                  <legend>Тип вопроса</legend>
+                  {[['theory', 'Теория'], ['command', 'Команда'], ['case', 'Практическая ситуация']].map(([value, label]) => (
+                    <label key={value} className="checkbox-row">
+                      <input
+                        type="checkbox"
+                        checked={readControlledFilterValues(draftFilterValue.tags, "type:").includes(value)}
+                        onChange={(event) => {
+                          const currentValues = readControlledFilterValues(draftFilterValue.tags, "type:");
+                          const nextValues = event.target.checked
+                            ? [...currentValues, value]
+                            : currentValues.filter((currentValue) => currentValue !== value);
+                          setDraftCardFilter({ tags: replaceControlledFilterTags(draftFilterValue.tags, "type:", nextValues) });
+                        }}
+                      />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </fieldset>
+                <label className="form-label">
+                  <span>Связанный материал</span>
+                  <select className="settings-input" value={readControlledFilterValue(draftFilterValue.tags, "material:")} onChange={(event) => setDraftCardFilter({ tags: replaceControlledFilterTags(draftFilterValue.tags, "material:", event.target.value === "" ? [] : [event.target.value]) })}>
+                    <option value="">Все карточки</option><option value="missing">Нет связанного урока</option><option value="linked">Урок привязан</option>
+                  </select>
+                </label>
               </div>
 
               <p className="subtitle cards-filter-summary">{formatCardFilterSummary(normalizeCardFilter(draftFilterValue), t)}</p>

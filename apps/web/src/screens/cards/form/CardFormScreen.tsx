@@ -54,6 +54,29 @@ function toTagSuggestions(tags: Awaited<ReturnType<typeof loadWorkspaceTagsSumma
 
 const workspaceUnavailableErrorMessage = "Workspace is unavailable";
 
+function createNewCardFormState(canManageSharedContent: boolean): CardFormState {
+  const state = toCardFormState(null);
+  if (!canManageSharedContent) return state;
+  return {
+    ...state,
+    metadata: {
+      ...state.metadata,
+      professorIt: {
+        sharedCardId: "pending",
+        subject: "linux",
+        topic: "fundamentals",
+        difficulty: "junior",
+        questionType: "theory",
+        lmsLessonId: null,
+              lmsLessonTitle: null,
+              lmsLessonUrl: null,
+              interviewSource: null,
+              publicationStatus: "published",
+      },
+    },
+  };
+}
+
 async function runRecoveryGuardedLocalRead<ResultType>(
   createRead: () => Promise<ResultType>,
   indexedDbOpenRecoveryState: IndexedDbOpenRecoveryState,
@@ -403,7 +426,7 @@ export function CardFormScreen(): ReactElement {
         }
       } else if (isCreateMode) {
         if (isSameFormIdentity === false) {
-          const initialFormState = toCardFormState(null);
+          const initialFormState = createNewCardFormState(session?.capabilities?.canManageSharedContent === true);
           reconciliationBaselineCardRef.current = null;
           mediaLifecycleConflictRef.current = null;
           resetTextareaSelectionRestore();
@@ -494,6 +517,7 @@ export function CardFormScreen(): ReactElement {
     return {
       frontText: currentFormState.frontText,
       backText: currentFormState.backText,
+      metadata: currentFormState.metadata,
       tags: currentFormState.tags,
     };
   }
@@ -589,6 +613,7 @@ export function CardFormScreen(): ReactElement {
         const payload: CreateCardInput = {
           frontText: currentFormState.frontText,
           backText: currentFormState.backText,
+          metadata: currentFormState.metadata,
           tags: currentFormState.tags,
         };
         await createCardItem(payload);
@@ -950,6 +975,7 @@ export function CardFormScreen(): ReactElement {
           onChange={handleFormStateChange}
           onPrepareImageMedia={handlePrepareImageMedia}
           onRetryMediaUploadTransfer={handleRetryMediaUploadTransfer}
+          canManageSharedContent={session?.capabilities?.canManageSharedContent === true}
         />
       </section>
     </main>

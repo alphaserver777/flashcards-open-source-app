@@ -1,4 +1,4 @@
-import type { CardMetadata, CardSourceMetadata } from "../../types";
+import type { CardMetadata, CardSourceMetadata, ProfessorItCardMetadata } from "../../types";
 
 type CardMetadataRecord = Readonly<Record<string, unknown>>;
 
@@ -31,6 +31,34 @@ function normalizeCardSourceMetadata(value: unknown): CardSourceMetadata | null 
     createdAt: expectNullableCardMetadataString(record.createdAt, "metadata.source.createdAt"),
     importedAt: expectNullableCardMetadataString(record.importedAt, "metadata.source.importedAt"),
     importId: expectNullableCardMetadataString(record.importId, "metadata.source.importId"),
+  };
+}
+
+function expectNonEmptyMetadataString(value: unknown, fieldName: string): string {
+  if (typeof value !== "string" || value.trim() === "") throw new Error(`${fieldName} must be a non-empty string`);
+  return value.trim();
+}
+
+function normalizeProfessorItCardMetadata(value: unknown): ProfessorItCardMetadata | undefined {
+  if (value === undefined) return undefined;
+  const record = expectCardMetadataRecord(value, "metadata.professorIt");
+  const difficulty = expectNonEmptyMetadataString(record.difficulty, "metadata.professorIt.difficulty");
+  const questionType = expectNonEmptyMetadataString(record.questionType, "metadata.professorIt.questionType");
+  const publicationStatus = expectNonEmptyMetadataString(record.publicationStatus, "metadata.professorIt.publicationStatus");
+  if (difficulty !== "junior" && difficulty !== "middle" && difficulty !== "senior") throw new Error("Unsupported Professor IT difficulty");
+  if (questionType !== "theory" && questionType !== "command" && questionType !== "case") throw new Error("Unsupported Professor IT question type");
+  if (publicationStatus !== "draft" && publicationStatus !== "published" && publicationStatus !== "archived") throw new Error("Unsupported Professor IT publication status");
+  return {
+    sharedCardId: expectNonEmptyMetadataString(record.sharedCardId, "metadata.professorIt.sharedCardId"),
+    subject: expectNonEmptyMetadataString(record.subject, "metadata.professorIt.subject"),
+    topic: expectNonEmptyMetadataString(record.topic, "metadata.professorIt.topic"),
+    difficulty,
+    questionType,
+    lmsLessonId: expectNullableCardMetadataString(record.lmsLessonId, "metadata.professorIt.lmsLessonId"),
+    lmsLessonTitle: expectNullableCardMetadataString(record.lmsLessonTitle, "metadata.professorIt.lmsLessonTitle"),
+    lmsLessonUrl: expectNullableCardMetadataString(record.lmsLessonUrl, "metadata.professorIt.lmsLessonUrl"),
+    interviewSource: expectNullableCardMetadataString(record.interviewSource ?? null, "metadata.professorIt.interviewSource"),
+    publicationStatus,
   };
 }
 
@@ -78,6 +106,7 @@ export function normalizeCardMetadata(value: unknown, createdAt: string): CardMe
   return {
     version: 1,
     source: normalizeCardSourceMetadata(record.source),
+    ...(record.professorIt === undefined ? {} : { professorIt: normalizeProfessorItCardMetadata(record.professorIt) }),
   };
 }
 

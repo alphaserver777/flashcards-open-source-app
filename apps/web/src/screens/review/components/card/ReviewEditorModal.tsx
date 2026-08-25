@@ -128,6 +128,7 @@ export function ReviewEditorModal(props: ReviewEditorModalProps): ReactElement |
           onChange={onChange}
           onPrepareImageMedia={onPrepareImageMedia}
           onRetryMediaUploadTransfer={onRetryMediaUploadTransfer}
+          canManageSharedContent={true}
         />
       </section>
     </div>
