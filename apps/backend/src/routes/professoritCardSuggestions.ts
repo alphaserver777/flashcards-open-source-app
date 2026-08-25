@@ -314,7 +314,6 @@ export function createProfessorItCardSuggestionRoutes(options: Options): Hono<Ap
 
   app.get("/professorit/shared-cards/from-copy/:cardId", async (context) => {
     const { requestContext } = await loadRequestContextFromRequest(context.req.raw, options.allowedOrigins);
-    requireAuthor(requestContext.userId);
     const cardId = expectUuidString(context.req.param("cardId"), "cardId");
     const workspaceId = expectUuidString(context.req.query("workspaceId"), "workspaceId");
     const result = await transactionWithWorkspaceScope({ userId: requestContext.userId, workspaceId }, async (executor) => executor.query<SharedCardMetadataRow>(
