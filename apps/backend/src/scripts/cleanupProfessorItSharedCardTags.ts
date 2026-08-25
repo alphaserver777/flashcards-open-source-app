@@ -58,7 +58,7 @@ async function cleanupWorkspace(row: WorkspaceMemberRow): Promise<number> {
       const replicaId = buildSystemWorkspaceReplicaId(
         row.workspace_id,
         "workspace_seed",
-        "professorit-shared-tag-cleanup",
+        "workspace-seed",
       );
       for (const card of taggedCards.rows) {
         await updateCardInExecutor(
