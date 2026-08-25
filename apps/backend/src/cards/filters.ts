@@ -17,13 +17,22 @@ function normalizeCardFilterTags(tags: ReadonlyArray<string>): ReadonlyArray<str
   }, []);
 }
 
+function structuredFilterTags(filter: CardFilter): ReadonlyArray<string> {
+  return [
+    ...(filter.subject === undefined || filter.subject === null ? [] : [`subject:${filter.subject}`]),
+    ...(filter.topics ?? []).map((topic) => `topic:${topic}`),
+    ...(filter.difficulty === undefined || filter.difficulty === null ? [] : [`level:${filter.difficulty}`]),
+    ...(filter.questionTypes ?? []).map((questionType) => `type:${questionType}`),
+  ];
+}
+
 export function normalizeCardFilter(filter: CardFilter | null): CardFilter | null {
   if (filter === null) {
     return null;
   }
 
   const normalizedFilter: CardFilter = {
-    tags: normalizeCardFilterTags(filter.tags),
+    tags: normalizeCardFilterTags([...filter.tags, ...structuredFilterTags(filter)]),
   };
 
   if (normalizedFilter.tags.length === 0) {
@@ -74,7 +83,7 @@ export function parseCardFilterInput(value: unknown, fieldName: string): CardFil
 
   const record = expectRecord(value);
   for (const key of Object.keys(record)) {
-    if (key !== "tags" && key !== "effort") {
+    if (key !== "tags" && key !== "effort" && key !== "subject" && key !== "topics" && key !== "difficulty" && key !== "question_types") {
       throw new HttpError(400, `${fieldName}.${key} is not supported`);
     }
   }
@@ -88,7 +97,28 @@ export function parseCardFilterInput(value: unknown, fieldName: string): CardFil
       ...(record.tags === undefined ? [] : expectStringArray(record.tags, `${fieldName}.tags`)),
       ...legacyEffortTags,
     ],
+    subject: record.subject === undefined || record.subject === null ? null : expectNonEmptyString(record.subject, `${fieldName}.subject`),
+    topics: record.topics === undefined ? [] : expectStringArray(record.topics, `${fieldName}.topics`),
+    difficulty: record.difficulty === undefined || record.difficulty === null ? null : expectDifficulty(record.difficulty, `${fieldName}.difficulty`),
+    questionTypes: record.question_types === undefined ? [] : expectQuestionTypes(record.question_types, `${fieldName}.question_types`),
   });
 
   return filter;
+}
+
+function expectNonEmptyString(value: unknown, fieldName: string): string {
+  if (typeof value !== "string" || value.trim() === "") throw new HttpError(400, `${fieldName} must be a non-empty string`);
+  return value.trim();
+}
+
+function expectDifficulty(value: unknown, fieldName: string): "junior" | "middle" | "senior" {
+  if (value === "junior" || value === "middle" || value === "senior") return value;
+  throw new HttpError(400, `${fieldName} must be junior, middle or senior`);
+}
+
+function expectQuestionTypes(value: unknown, fieldName: string): ReadonlyArray<"theory" | "command" | "case"> {
+  return expectStringArray(value, fieldName).map((item, index) => {
+    if (item === "theory" || item === "command" || item === "case") return item;
+    throw new HttpError(400, `${fieldName}[${index}] must be theory, command or case`);
+  });
 }

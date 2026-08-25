@@ -329,8 +329,15 @@ export function buildCardsQueryFilterClause(
   const params: Array<SqlValue> = [];
 
   if (filter.tags.length > 0) {
-    params.push(filter.tags);
-    clauses.push(`tags && $${startIndex + params.length}::text[]`);
+    const tagGroups = new Map<string, Array<string>>();
+    for (const tag of filter.tags) {
+      const prefix = ["subject:", "topic:", "level:", "type:", "material:"].find((candidate) => tag.toLowerCase().startsWith(candidate)) ?? "legacy";
+      tagGroups.set(prefix, [...(tagGroups.get(prefix) ?? []), tag]);
+    }
+    for (const tags of tagGroups.values()) {
+      params.push(tags);
+      clauses.push(`tags && $${startIndex + params.length}::text[]`);
+    }
   }
 
   if (clauses.length === 0) {

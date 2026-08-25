@@ -7,6 +7,7 @@ import type {
   CardMutationMetadata,
   CardRow,
   CardSourceMetadata,
+  ProfessorItCardMetadata,
   DeckSummary,
   DeckSummaryRow,
   ReviewEvent,
@@ -121,6 +122,30 @@ function normalizeCardSourceMetadata(value: unknown): CardSourceMetadata | null 
   };
 }
 
+function expectProfessorItValue<T extends string>(value: unknown, fieldName: string, allowedValues?: ReadonlyArray<T>): T {
+  if (typeof value !== "string" || value.trim() === "") throw new Error(`${fieldName} must be a non-empty string`);
+  const normalizedValue = value.trim() as T;
+  if (allowedValues !== undefined && allowedValues.includes(normalizedValue) === false) throw new Error(`${fieldName} has an unsupported value`);
+  return normalizedValue;
+}
+
+function normalizeProfessorItCardMetadata(value: unknown): ProfessorItCardMetadata | undefined {
+  if (value === undefined) return undefined;
+  const record = expectCardMetadataRecord(value, "metadata.professorIt");
+  return {
+    sharedCardId: expectProfessorItValue(record.sharedCardId, "metadata.professorIt.sharedCardId"),
+    subject: expectProfessorItValue(record.subject, "metadata.professorIt.subject"),
+    topic: expectProfessorItValue(record.topic, "metadata.professorIt.topic"),
+    difficulty: expectProfessorItValue(record.difficulty, "metadata.professorIt.difficulty", ["junior", "middle", "senior"]),
+    questionType: expectProfessorItValue(record.questionType, "metadata.professorIt.questionType", ["theory", "command", "case"]),
+    lmsLessonId: expectNullableCardMetadataString(record.lmsLessonId, "metadata.professorIt.lmsLessonId"),
+    lmsLessonTitle: expectNullableCardMetadataString(record.lmsLessonTitle, "metadata.professorIt.lmsLessonTitle"),
+    lmsLessonUrl: expectNullableCardMetadataString(record.lmsLessonUrl, "metadata.professorIt.lmsLessonUrl"),
+    interviewSource: expectNullableCardMetadataString(record.interviewSource ?? null, "metadata.professorIt.interviewSource"),
+    publicationStatus: expectProfessorItValue(record.publicationStatus, "metadata.professorIt.publicationStatus", ["draft", "published", "archived"]),
+  };
+}
+
 export function normalizeCardMetadata(metadata: unknown): CardMetadata {
   const record = expectCardMetadataRecord(metadata, "metadata");
   if (record.version !== 1) {
@@ -130,6 +155,7 @@ export function normalizeCardMetadata(metadata: unknown): CardMetadata {
   return {
     version: 1,
     source: normalizeCardSourceMetadata(record.source),
+    ...(record.professorIt === undefined ? {} : { professorIt: normalizeProfessorItCardMetadata(record.professorIt) }),
   };
 }
 

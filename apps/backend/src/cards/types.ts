@@ -10,6 +10,10 @@ export type TimestampValue = Date | string;
 
 export type CardFilter = Readonly<{
   tags: ReadonlyArray<string>;
+  subject?: string | null;
+  topics?: ReadonlyArray<string>;
+  difficulty?: "junior" | "middle" | "senior" | null;
+  questionTypes?: ReadonlyArray<"theory" | "command" | "case">;
 }>;
 
 export type CardSourceMetadata = Readonly<{
@@ -21,9 +25,23 @@ export type CardSourceMetadata = Readonly<{
   importId: string | null;
 }>;
 
+export type ProfessorItCardMetadata = Readonly<{
+  sharedCardId: string;
+  subject: string;
+  topic: string;
+  difficulty: "junior" | "middle" | "senior";
+  questionType: "theory" | "command" | "case";
+  lmsLessonId: string | null;
+  lmsLessonTitle: string | null;
+  lmsLessonUrl: string | null;
+  interviewSource: string | null;
+  publicationStatus: "draft" | "published" | "archived";
+}>;
+
 export type CardMetadata = Readonly<{
   version: 1;
   source: CardSourceMetadata | null;
+  professorIt?: ProfessorItCardMetadata;
 }>;
 
 export type CardRow = Readonly<{
