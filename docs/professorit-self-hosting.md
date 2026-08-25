@@ -118,7 +118,10 @@ Migrations `0114` through `0117` introduce centralized content, learner
 suggestions, shared revisions and revision tracking. Migrations `0118` through
 `0120` add the canonical knowledge-base taxonomy, classify the 118 existing
 Linux and Git cards and import the Linux interview-question backlog as drafts.
-Do not edit these schemas manually in production.
+The browser stores no technical classification tags: the synchronizer removes
+them from shared copies while preserving every learner's schedule, attempts and
+progress. Private learner cards keep their own tags. Do not edit these schemas
+manually in production.
 
 Run `scripts/deploy/export-professorit-cards.sh` daily from CT 205. It exports
 the canonical database to JSON and Markdown, writes checksums and retains the
@@ -137,8 +140,10 @@ After a release, test all of the following in separate browser sessions:
 6. Suggestion submission, author editing, acceptance and rejection.
 7. Reviewed suggestions removed from the pending list.
 8. Logout and session refresh below the `/cards` path.
-9. Combined subject, topic, level and question-type filters.
-10. LMS link hidden before answer reveal and visible afterwards.
+9. Combined subject, topic, level and question-type filters without visible
+   technical tags.
+10. An ordinary LMS editor URL is accepted, converted to a stable lesson link,
+    hidden before answer reveal and shown afterwards as `Материалы`.
 11. Draft and archived cards hidden from learners.
 12. Canonical edits propagated without resetting learner scheduling.
 
