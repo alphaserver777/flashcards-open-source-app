@@ -162,9 +162,25 @@ const cardSourceMetadataSchema = z.object({
   importId: z.string().nullable(),
 });
 
+// Эти данные не являются пользовательскими метками. Они нужны Professor IT,
+// чтобы карточка сохраняла классификацию и ссылку на материал LMS при синхронизации.
+const professorItCardMetadataSchema = z.object({
+  sharedCardId: z.string().min(1),
+  subject: z.string().min(1),
+  topic: z.string().min(1),
+  difficulty: z.enum(["junior", "middle", "senior"]),
+  questionType: z.enum(["theory", "command", "case"]),
+  lmsLessonId: z.string().nullable(),
+  lmsLessonTitle: z.string().nullable(),
+  lmsLessonUrl: z.string().nullable(),
+  interviewSource: z.string().nullable(),
+  publicationStatus: z.enum(["draft", "published", "archived"]),
+});
+
 export const cardMetadataSchema = z.object({
   version: z.literal(1),
   source: cardSourceMetadataSchema.nullable(),
+  professorIt: professorItCardMetadataSchema.optional(),
 });
 
 const deckFilterDefinitionSchema = z.object({
