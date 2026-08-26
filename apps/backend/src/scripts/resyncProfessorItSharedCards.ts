@@ -1,10 +1,26 @@
+import { updateCardInExecutor } from "../cards";
+import type { CardMetadata } from "../cards";
 import { transactionWithWorkspaceScope } from "../database";
 import { unsafeTransaction } from "../database/core";
-import { synchronizeProfessorITSharedCardsInExecutor } from "../professorit/sharedCards";
+import { buildSystemWorkspaceReplicaId } from "../sync/identity/replica";
 
 type WorkspaceMemberRow = Readonly<{
   workspace_id: string;
   user_id: string;
+}>;
+
+type SharedCardRow = Readonly<{
+  card_id: string;
+  metadata: CardMetadata;
+  shared_card_id: string;
+  subject_slug: string;
+  topic_slug: string;
+  difficulty: "junior" | "middle" | "senior";
+  question_type: "theory" | "command" | "case";
+  lms_lesson_id: string | null;
+  lms_lesson_title: string | null;
+  interview_source: string | null;
+  publication_status: "draft" | "published" | "archived";
 }>;
 
 async function loadWorkspaces(): Promise<ReadonlyArray<WorkspaceMemberRow>> {
@@ -37,16 +53,51 @@ async function resyncWorkspace(workspace: WorkspaceMemberRow): Promise<number> {
   return transactionWithWorkspaceScope(
     { userId: workspace.user_id, workspaceId: workspace.workspace_id },
     async (executor) => {
-      const result = await executor.query<Readonly<{ count: string }>>(
-        "SELECT count(*) FROM content.professorit_shared_card_copies WHERE workspace_id = $1",
+      const result = await executor.query<SharedCardRow>(
+        [
+          "SELECT cards.card_id, cards.metadata, shared.shared_card_id, shared.subject_slug, shared.topic_slug,",
+          "shared.difficulty, shared.question_type, shared.lms_lesson_id, shared.lms_lesson_title,",
+          "shared.interview_source, shared.publication_status",
+          "FROM content.professorit_shared_card_copies copies",
+          "INNER JOIN content.cards cards ON cards.workspace_id = copies.workspace_id AND cards.card_id = copies.card_id",
+          "INNER JOIN content.professorit_shared_cards shared ON shared.shared_card_id = copies.shared_card_id",
+          "WHERE copies.workspace_id = $1 AND shared.publication_status = 'published'",
+          "ORDER BY cards.card_id",
+        ].join(" "),
         [workspace.workspace_id],
       );
-      await synchronizeProfessorITSharedCardsInExecutor(
-        executor,
-        workspace.user_id,
-        workspace.workspace_id,
-      );
-      return Number(result.rows[0]?.count ?? 0);
+      const baseUrl = (process.env.PROFESSORIT_LMS_BASE_URL ?? "https://academy.professorit.ru").replace(/\/$/, "");
+      const replicaId = buildSystemWorkspaceReplicaId(workspace.workspace_id, "workspace_seed", "workspace-seed");
+      for (const card of result.rows) {
+        await updateCardInExecutor(
+          executor,
+          workspace.workspace_id,
+          card.card_id,
+          {
+            metadata: {
+              ...card.metadata,
+              professorIt: {
+                sharedCardId: card.shared_card_id,
+                subject: card.subject_slug,
+                topic: card.topic_slug,
+                difficulty: card.difficulty,
+                questionType: card.question_type,
+                lmsLessonId: card.lms_lesson_id,
+                lmsLessonTitle: card.lms_lesson_title,
+                lmsLessonUrl: card.lms_lesson_id === null ? null : `${baseUrl}/professorit/lesson/${encodeURIComponent(card.lms_lesson_id)}`,
+                interviewSource: card.interview_source,
+                publicationStatus: card.publication_status,
+              },
+            },
+          },
+          {
+            clientUpdatedAt: new Date().toISOString(),
+            lastModifiedByReplicaId: replicaId,
+            lastOperationId: `professorit-shared-resync-${card.card_id}-${Date.now()}`,
+          },
+        );
+      }
+      return result.rows.length;
     },
   );
 }
