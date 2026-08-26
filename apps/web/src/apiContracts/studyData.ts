@@ -69,11 +69,19 @@ function parseCardMetadata(value: unknown, endpoint: string, path: string): Card
     1,
   );
   const source = parseRequiredField(objectValue, "source", endpoint, path, parseCardSourceMetadata);
+
+  const baseMetadata: CardMetadata = { version, source };
+
+  // Карточки из старых версий могут содержать неполные служебные поля.
+  // Они не должны мешать загрузке всей очереди повторения.
+  if (objectValue.professorIt === undefined) {
+    return baseMetadata;
+  }
+
   try {
-    return normalizeCardMetadata({ ...objectValue, version, source }, "");
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "invalid metadata";
-    throw new Error(`${endpoint}${path}: ${message}`);
+    return normalizeCardMetadata({ ...baseMetadata, professorIt: objectValue.professorIt }, "");
+  } catch {
+    return baseMetadata;
   }
 }
 
