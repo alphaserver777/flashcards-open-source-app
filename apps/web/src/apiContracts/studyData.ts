@@ -8,7 +8,7 @@ import type {
   ReviewEvent,
   WorkspaceSchedulerSettings,
 } from "../types";
-import { makeDefaultCardMetadata } from "../appData/domain/cardMetadata";
+import { makeDefaultCardMetadata, normalizeCardMetadata } from "../appData/domain/cardMetadata";
 import { appendLegacyEffortTag } from "../legacyEffort";
 import {
   joinPath,
@@ -62,10 +62,19 @@ function parseCardSourceMetadata(value: unknown, endpoint: string, path: string)
 
 function parseCardMetadata(value: unknown, endpoint: string, path: string): CardMetadata {
   const objectValue = parseObject(value, endpoint, path);
-  return {
-    version: parseLiteral(parseRequiredField(objectValue, "version", endpoint, path, parseNumber), endpoint, joinPath(path, "version"), 1),
-    source: parseRequiredField(objectValue, "source", endpoint, path, parseCardSourceMetadata),
-  };
+  const version = parseLiteral(
+    parseRequiredField(objectValue, "version", endpoint, path, parseNumber),
+    endpoint,
+    joinPath(path, "version"),
+    1,
+  );
+  const source = parseRequiredField(objectValue, "source", endpoint, path, parseCardSourceMetadata);
+  try {
+    return normalizeCardMetadata({ ...objectValue, version, source }, "");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "invalid metadata";
+    throw new Error(`${endpoint}${path}: ${message}`);
+  }
 }
 
 export function parseReviewRating(value: unknown, endpoint: string, path: string): 0 | 1 | 2 | 3 {

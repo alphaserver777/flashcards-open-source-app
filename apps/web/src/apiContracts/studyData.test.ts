@@ -117,4 +117,27 @@ describe("study data API contracts", () => {
     expect(change.payload.cardType).toBe("custom-renderer");
     expect(change.payload.metadata).toEqual(metadata);
   });
+
+  it("preserves Professor IT classification and the LMS material link", () => {
+    const metadata: CardMetadata = {
+      version: 1,
+      source: null,
+      professorIt: {
+        sharedCardId: "shared-card-1",
+        subject: "linux",
+        topic: "processes",
+        difficulty: "middle",
+        questionType: "case",
+        lmsLessonId: "lesson-1",
+        lmsLessonTitle: "Процессы",
+        lmsLessonUrl: "https://academy.professorit.ru/professorit/lesson/lesson-1",
+        interviewSource: null,
+        publicationStatus: "published",
+      },
+    };
+
+    const card = parseCard(makeCardPayload({ cardId: "professor-it-card", metadata }), "GET /cards", "cards[0]");
+
+    expect(card.metadata).toEqual(metadata);
+  });
 });
