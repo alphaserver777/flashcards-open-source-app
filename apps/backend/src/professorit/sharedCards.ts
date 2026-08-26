@@ -291,12 +291,17 @@ export async function synchronizeProfessorITSharedCardsInExecutor(
       }
       const desiredTags = sharedCardTags(row);
       const desiredMetadata = sharedCardMetadata(row);
+      const metadataMatches = JSON.stringify(row.metadata.professorIt) === JSON.stringify(desiredMetadata.professorIt);
+      const hasProfessorItMetadata = row.metadata.professorIt !== undefined;
       const authorContentChanged = row.front_text !== row.shared_front_text
         || row.back_text !== row.shared_back_text
         || row.card_type !== row.shared_card_type
-        || JSON.stringify(row.metadata.professorIt) !== JSON.stringify(desiredMetadata.professorIt);
+        // An absent classification belongs to an outdated local copy. It must
+        // be restored from the common card instead of being treated as an
+        // author edit that overwrites the common classification.
+        || (hasProfessorItMetadata && metadataMatches === false);
       const tagsChanged = JSON.stringify(row.tags) !== JSON.stringify(desiredTags);
-      if (authorContentChanged === false && tagsChanged === false) {
+      if (authorContentChanged === false && tagsChanged === false && metadataMatches) {
         if (new Date(row.shared_updated_at_applied).getTime() < new Date(row.shared_updated_at).getTime()) {
           await executor.query(
             "UPDATE content.professorit_shared_card_copies SET shared_updated_at_applied = $3 WHERE shared_card_id = $1 AND workspace_id = $2",

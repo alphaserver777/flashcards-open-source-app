@@ -1,17 +1,10 @@
-import { updateCardInExecutor } from "../cards";
 import { transactionWithWorkspaceScope } from "../database";
 import { unsafeTransaction } from "../database/core";
-import type { CardMetadata } from "../cards";
-import { buildSystemWorkspaceReplicaId } from "../sync/identity/replica";
+import { synchronizeProfessorITSharedCardsInExecutor } from "../professorit/sharedCards";
 
 type WorkspaceMemberRow = Readonly<{
   workspace_id: string;
   user_id: string;
-}>;
-
-type SharedCardRow = Readonly<{
-  card_id: string;
-  metadata: CardMetadata;
 }>;
 
 async function loadWorkspaces(): Promise<ReadonlyArray<WorkspaceMemberRow>> {
@@ -44,38 +37,16 @@ async function resyncWorkspace(workspace: WorkspaceMemberRow): Promise<number> {
   return transactionWithWorkspaceScope(
     { userId: workspace.user_id, workspaceId: workspace.workspace_id },
     async (executor) => {
-      const result = await executor.query<SharedCardRow>(
-        [
-          "SELECT cards.card_id, cards.metadata",
-          "FROM content.cards AS cards",
-          "INNER JOIN content.professorit_shared_card_copies AS copies",
-          "ON copies.workspace_id = cards.workspace_id AND copies.card_id = cards.card_id",
-          "WHERE cards.workspace_id = $1 AND cards.metadata ? 'professorIt'",
-          "ORDER BY cards.card_id",
-        ].join(" "),
+      const result = await executor.query<Readonly<{ count: string }>>(
+        "SELECT count(*) FROM content.professorit_shared_card_copies WHERE workspace_id = $1",
         [workspace.workspace_id],
       );
-
-      const clientUpdatedAt = new Date().toISOString();
-      const replicaId = buildSystemWorkspaceReplicaId(
+      await synchronizeProfessorITSharedCardsInExecutor(
+        executor,
+        workspace.user_id,
         workspace.workspace_id,
-        "workspace_seed",
-        "workspace-seed",
       );
-      for (const card of result.rows) {
-        await updateCardInExecutor(
-          executor,
-          workspace.workspace_id,
-          card.card_id,
-          { metadata: card.metadata },
-          {
-            clientUpdatedAt,
-            lastModifiedByReplicaId: replicaId,
-            lastOperationId: `professorit-shared-resync-${card.card_id}-${Date.now()}`,
-          },
-        );
-      }
-      return result.rows.length;
+      return Number(result.rows[0]?.count ?? 0);
     },
   );
 }
