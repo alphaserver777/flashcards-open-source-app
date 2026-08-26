@@ -110,6 +110,19 @@ scripts/deploy/build-professorit-web.sh
 The script pins the public application, API and authentication paths and
 disables the mobile promotion dialog.
 
+The equivalent direct command is:
+
+```bash
+cd apps/web
+npm run build -- --mode proxmox-lab
+```
+
+`proxmox-lab` is mandatory for the public address under `/cards/`. A normal
+Vite build writes references such as `/assets/...`; Traefik exposes this
+application under `/cards/`, so those files are then not found and the browser
+shows an empty page. Before deployment, verify that the generated `index.html`
+contains `/cards/assets/`.
+
 ## Database changes
 
 Professor IT behavior is represented by normal repository migrations. Before
@@ -122,6 +135,35 @@ The browser stores no technical classification tags: the synchronizer removes
 them from shared copies while preserving every learner's schedule, attempts and
 progress. Private learner cards keep their own tags. Do not edit these schemas
 manually in production.
+
+## Incident: missing classification and Materials button
+
+On 2026-08-26 the database already contained `metadata.professorIt`, but the
+backend synchronization input schema accepted only `version` and `source`.
+The validator silently removed the nested Professor IT block during bootstrap
+and hot synchronization. As a result, the browser received the old form with
+tags, and the learner did not receive the `Материалы` button after revealing
+an answer.
+
+The correction is committed in `d4d461f`:
+
+- the synchronization contract explicitly accepts `metadata.professorIt`;
+- the web client safely reads legacy cards without aborting the review queue;
+- a one-time resynchronization refreshes shared-card copies while retaining
+  each learner's repetition dates, attempts and progress.
+
+If this symptom reappears, do not change cards manually first. Confirm the
+deployed backend revision and run the shared-card resynchronization only after
+a PostgreSQL backup:
+
+```bash
+cd /opt/flashcards/apps/backend
+npx tsx src/scripts/resyncProfessorItSharedCards.ts
+```
+
+Then verify in a fresh browser session: reveal an answer for a linked card and
+confirm that exactly one `Материалы` button is visible. It must open the stable
+LMS lesson address and must not change the learner's repetition schedule.
 
 Run `scripts/deploy/export-professorit-cards.sh` daily from CT 205. It exports
 the canonical database to JSON and Markdown, writes checksums and retains the
