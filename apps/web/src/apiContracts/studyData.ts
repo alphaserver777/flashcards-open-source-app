@@ -2,13 +2,14 @@ import type {
   Card,
   CardMetadata,
   CardSourceMetadata,
+  ProfessorItCardMetadata,
   Deck,
   DeckFilterDefinition,
   LegacyEffortLevel,
   ReviewEvent,
   WorkspaceSchedulerSettings,
 } from "../types";
-import { makeDefaultCardMetadata, normalizeCardMetadata } from "../appData/domain/cardMetadata";
+import { makeDefaultCardMetadata } from "../appData/domain/cardMetadata";
 import { appendLegacyEffortTag } from "../legacyEffort";
 import {
   joinPath,
@@ -60,6 +61,40 @@ function parseCardSourceMetadata(value: unknown, endpoint: string, path: string)
   };
 }
 
+function parseProfessorItMetadataSafely(value: unknown): ProfessorItCardMetadata | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  const record = value as Record<string, unknown>;
+  const readRequired = (key: string): string | null => {
+    const field = record[key];
+    return typeof field === "string" && field.trim() !== "" ? field.trim() : null;
+  };
+  const readOptional = (key: string): string | null | undefined => {
+    const field = record[key];
+    return field === undefined ? undefined : field === null || typeof field === "string" ? field : undefined;
+  };
+
+  const sharedCardId = readRequired("sharedCardId");
+  const subject = readRequired("subject");
+  const topic = readRequired("topic");
+  const difficulty = readRequired("difficulty");
+  const questionType = readRequired("questionType");
+  const publicationStatus = readRequired("publicationStatus");
+  const lmsLessonId = readOptional("lmsLessonId");
+  const lmsLessonTitle = readOptional("lmsLessonTitle");
+  const lmsLessonUrl = readOptional("lmsLessonUrl");
+  const interviewSource = readOptional("interviewSource");
+
+  if (
+    sharedCardId === null || subject === null || topic === null
+    || (difficulty !== "junior" && difficulty !== "middle" && difficulty !== "senior")
+    || (questionType !== "theory" && questionType !== "command" && questionType !== "case")
+    || (publicationStatus !== "draft" && publicationStatus !== "published" && publicationStatus !== "archived")
+    || lmsLessonId === undefined || lmsLessonTitle === undefined || lmsLessonUrl === undefined || interviewSource === undefined
+  ) return undefined;
+
+  return { sharedCardId, subject, topic, difficulty, questionType, lmsLessonId, lmsLessonTitle, lmsLessonUrl, interviewSource, publicationStatus };
+}
+
 function parseCardMetadata(value: unknown, endpoint: string, path: string): CardMetadata {
   const objectValue = parseObject(value, endpoint, path);
   const version = parseLiteral(
@@ -78,11 +113,8 @@ function parseCardMetadata(value: unknown, endpoint: string, path: string): Card
     return baseMetadata;
   }
 
-  try {
-    return normalizeCardMetadata({ ...baseMetadata, professorIt: objectValue.professorIt }, "");
-  } catch {
-    return baseMetadata;
-  }
+  const professorIt = parseProfessorItMetadataSafely(objectValue.professorIt);
+  return professorIt === undefined ? baseMetadata : { ...baseMetadata, professorIt };
 }
 
 export function parseReviewRating(value: unknown, endpoint: string, path: string): 0 | 1 | 2 | 3 {
