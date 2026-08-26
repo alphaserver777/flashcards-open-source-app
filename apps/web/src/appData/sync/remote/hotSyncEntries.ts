@@ -1,6 +1,4 @@
-import { loadCardsByIds } from "../../../localDb/cards/cards";
 import type { WorkspaceSchedulerSettings } from "../../../types";
-import { doesCardMutationAffectReviewSchedule } from "../../domain";
 import type {
   CardHotSyncEntry,
   HotSyncEntry,
@@ -36,7 +34,7 @@ function isCardHotSyncEntry(entry: HotSyncEntry): entry is CardHotSyncEntry {
 }
 
 export async function doHotSyncEntriesAffectReviewSchedule(
-  workspaceId: string,
+  _workspaceId: string,
   entries: ReadonlyArray<HotSyncEntry>,
 ): Promise<boolean> {
   const cardEntries = entries.filter(isCardHotSyncEntry);
@@ -44,13 +42,10 @@ export async function doHotSyncEntriesAffectReviewSchedule(
     return false;
   }
 
-  const existingCards = await loadCardsByIds(
-    workspaceId,
-    cardEntries.map((entry) => entry.payload.cardId),
-  );
-
-  return cardEntries.some((entry) => doesCardMutationAffectReviewSchedule(
-    existingCards.get(entry.payload.cardId) ?? null,
-    entry.payload,
-  ));
+  // The review queue keeps complete Card objects, not only scheduling fields.
+  // Rebuild it after every remote card upsert so changes to text, structured
+  // Professor IT metadata and the LMS material link become visible immediately.
+  // Without this invalidation IndexedDB contains the canonical card, while the
+  // open review screen continues rendering its stale in-memory copy.
+  return true;
 }
