@@ -1,7 +1,8 @@
 # Professor IT self-hosted mode
 
-Status as of 2026-08-25: deployed for browser use at
-`https://professorit.ru/cards/` from branch `professorit/identity`.
+Status as of 2026-09-07: the Professor IT source baseline is maintained in
+`professorit/main` and tagged `professorit-v1.0.0`. The browser service remains
+available at `https://professorit.ru/cards/`.
 
 ## Purpose
 
@@ -198,11 +199,11 @@ curl -fsS http://192.168.50.115/ >/dev/null
 
 ## Upstream update procedure
 
-Keep Professor IT work in `professorit/identity`. Fetch the upstream default
-branch, merge or rebase it in a separate integration step, resolve conflicts on
-the workstation, then run the relevant checks and web build. Deploy only a
-named committed revision. Never develop by editing `/opt/flashcards` as the
-sole copy.
+Start Professor IT work from `professorit/develop` in a short
+`professorit/feature/*` branch. Fetch the upstream default branch and integrate
+it only in a separate reviewed step. Resolve conflicts on the workstation, then
+run the relevant checks and web build. Deploy only a named committed revision.
+Never develop by editing `/opt/flashcards` as the sole copy.
 
 ## Current hardening backlog
 
