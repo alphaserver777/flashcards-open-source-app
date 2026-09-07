@@ -1,5 +1,16 @@
 # flashcards-open-source-app
 
+## Professor IT fork
+
+- Утверждённая базовая версия надстройки — `professorit-v1.0.0`.
+- `origin/professorit/main` — рабочая ветка Professor IT,
+  `origin/professorit/develop` — следующая версия.
+- Обычная `main` и `upstream/main` принадлежат исходному открытому проекту;
+  не сливайте их в рабочую ветку без отдельного просмотра миграций, входа,
+  общих колод и развертывания Professor IT.
+- Новая работа ведётся в `professorit/feature/*`, срочные исправления — в
+  `professorit/hotfix/*`.
+
 Open-source, offline-first flashcards platform.
 
 - Domain: `flashcards-open-source-app.com`
