@@ -64,14 +64,14 @@ When adding a new web locale, inspect all of these places:
 10. [apps/web/src/api.ts](../apps/web/src/api.ts)
 11. [apps/web/src/access/browserAccess.ts](../apps/web/src/access/browserAccess.ts)
 12. [apps/web/src/chat/sessionController/context.tsx](../apps/web/src/chat/sessionController/context.tsx)
-13. [apps/web/src/chat/useChatHistory.ts](../apps/web/src/chat/useChatHistory.ts)
-14. [apps/web/src/chat/chatMessageContent.tsx](../apps/web/src/chat/chatMessageContent.tsx)
-15. [apps/web/src/screens/review/reviewSpeech.ts](../apps/web/src/screens/review/reviewSpeech.ts)
-16. [apps/web/src/screens/review/useReviewCardEditor.ts](../apps/web/src/screens/review/useReviewCardEditor.ts)
+13. [apps/web/src/chat/history/useChatHistory.ts](../apps/web/src/chat/history/useChatHistory.ts)
+14. [apps/web/src/chat/history/chatMessageContent.tsx](../apps/web/src/chat/history/chatMessageContent.tsx)
+15. [apps/web/src/screens/review/speech/reviewSpeech.ts](../apps/web/src/screens/review/speech/reviewSpeech.ts)
+16. [apps/web/src/screens/review/components/card/useReviewCardEditor.ts](../apps/web/src/screens/review/components/card/useReviewCardEditor.ts)
 17. [apps/web/src/screens/settings/ThisDeviceSettingsScreen.tsx](../apps/web/src/screens/settings/ThisDeviceSettingsScreen.tsx)
 18. [apps/web/src/screens/settings/access/AccessPermissionDetailScreen.tsx](../apps/web/src/screens/settings/access/AccessPermissionDetailScreen.tsx)
 19. [apps/web/src/i18n/runtime.test.ts](../apps/web/src/i18n/runtime.test.ts)
-20. [apps/web/src/api.test.ts](../apps/web/src/api.test.ts)
+20. [apps/web/src/api/authUrls.test.ts](../apps/web/src/api/authUrls.test.ts)
 21. [apps/web/e2e/live-smoke/](../apps/web/e2e/live-smoke/)
 
 If any of these are skipped, the app can compile and still ship with partially untranslated behavior.
@@ -194,13 +194,13 @@ These files are required audit points for a new locale:
 - [apps/web/src/chat/sessionController/context.tsx](../apps/web/src/chat/sessionController/context.tsx)
   Chat-specific UI-message bundle and post-sync error messaging.
 
-- [apps/web/src/chat/useChatHistory.ts](../apps/web/src/chat/useChatHistory.ts)
+- [apps/web/src/chat/history/useChatHistory.ts](../apps/web/src/chat/history/useChatHistory.ts)
   Optimistic assistant status text and any other user-visible placeholder content that can survive into the rendered transcript.
 
-- [apps/web/src/chat/chatMessageContent.tsx](../apps/web/src/chat/chatMessageContent.tsx)
+- [apps/web/src/chat/history/chatMessageContent.tsx](../apps/web/src/chat/history/chatMessageContent.tsx)
   Tool labels, copy buttons, attachment labels, reasoning/tool-call status text, clipboard failure alerts.
 
-- [apps/web/src/screens/review/useReviewCardEditor.ts](../apps/web/src/screens/review/useReviewCardEditor.ts)
+- [apps/web/src/screens/review/components/card/useReviewCardEditor.ts](../apps/web/src/screens/review/components/card/useReviewCardEditor.ts)
   Delete-confirmation dialog and editor-specific error copy.
 
 - [apps/web/src/screens/settings/access/AccessPermissionDetailScreen.tsx](../apps/web/src/screens/settings/access/AccessPermissionDetailScreen.tsx)
@@ -211,7 +211,7 @@ It is to make sure loading, retry, denied-permission, interrupted-run, and dialo
 
 ### 8. Review speech support if the locale should sound correct when spoken
 
-Review [apps/web/src/screens/review/reviewSpeech.ts](../apps/web/src/screens/review/reviewSpeech.ts).
+Review [apps/web/src/screens/review/speech/reviewSpeech.ts](../apps/web/src/screens/review/speech/reviewSpeech.ts).
 
 Adding a UI locale does not automatically make speech output feel correct. The current web behavior should follow this rule:
 
@@ -244,7 +244,7 @@ Important:
 - when the web locale list changes, confirm whether `AuthUiLocale`, `normalizeAuthUiLocale(...)`, and `getPreferredAuthUiLocale()` should preserve the new exact tag, map it to another auth-supported tag, or intentionally fall back
 - do not modify `apps/auth` as part of a normal web-locale change unless the product explicitly wants auth localized too
 
-If auth should also support the new locale, coordinate a separate auth change and update [apps/web/src/api.test.ts](../apps/web/src/api.test.ts) in the same branch.
+If auth should also support the new locale, coordinate a separate auth change and update [apps/web/src/api/authUrls.test.ts](../apps/web/src/api/authUrls.test.ts) in the same branch.
 
 ### 10. Do not localize user data or technical identifiers blindly
 
@@ -286,12 +286,12 @@ Run this checklist every time you add a new web locale.
 From `apps/web`:
 
 - `npm run build`
-- `npx vitest run src/i18n/runtime.test.ts src/api.test.ts`
+- `npx vitest run src/i18n/runtime.test.ts src/api/authUrls.test.ts`
 
 Why these matter:
 
 - [apps/web/src/i18n/runtime.test.ts](../apps/web/src/i18n/runtime.test.ts) verifies browser-locale matching, explicit locale preference persistence, and translation resolution behavior
-- [apps/web/src/api.test.ts](../apps/web/src/api.test.ts) verifies auth locale-hint normalization and login URL propagation
+- [apps/web/src/api/authUrls.test.ts](../apps/web/src/api/authUrls.test.ts) verifies auth locale-hint normalization and login URL propagation
 
 If the locale addition changes expected supported-language behavior, update those tests instead of leaving stale assumptions behind.
 
